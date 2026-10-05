@@ -1,5 +1,3 @@
-HopDong.java
-
 package com.project.QLPT.entity;
 
 import java.math.BigDecimal;

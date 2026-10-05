@@ -1,4 +1,3 @@
-NguoiThue.java
 package com.project.QLPT.entity;
 
 import java.time.LocalDate;
