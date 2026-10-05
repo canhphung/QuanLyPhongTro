@@ -11,6 +11,7 @@ import com.project.QLPT.entity.NguoiThue;
 import com.project.QLPT.exception.BusinessException;
 import com.project.QLPT.exception.ResourceNotFoundException;
 import com.project.QLPT.repository.NguoiThueRepository;
+import com.project.QLPT.repository.ThanhVienHopDongRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 public class NguoiThueService {
 
     private final NguoiThueRepository nguoiThueRepository;
+    private final ThanhVienHopDongRepository thanhVienHopDongRepository;
 
     @Transactional
     public NguoiThueResponse create(NguoiThueRequest request) {
@@ -38,8 +40,7 @@ public class NguoiThueService {
                 .build();
 
         return toResponse(
-                nguoiThueRepository.save(entity)
-        );
+                nguoiThueRepository.save(entity));
     }
 
     @Transactional(readOnly = true)
@@ -60,8 +61,7 @@ public class NguoiThueService {
     @Transactional
     public NguoiThueResponse update(
             Integer id,
-            NguoiThueRequest request
-    ) {
+            NguoiThueRequest request) {
 
         NguoiThue entity = findEntity(id);
 
@@ -76,8 +76,7 @@ public class NguoiThueService {
         entity.setSoDienThoai(trimToNull(request.soDienThoai()));
         entity.setNgaySinh(request.ngaySinh());
         entity.setDiaChiThuongTru(
-                trimToNull(request.diaChiThuongTru())
-        );
+                trimToNull(request.diaChiThuongTru()));
 
         return toResponse(entity);
     }
@@ -92,14 +91,26 @@ public class NguoiThueService {
                 .toList();
     }
 
+    @Transactional
+    public void delete(Integer id) {
+
+        NguoiThue entity = findEntity(id);
+
+        if (thanhVienHopDongRepository
+                .existsByNguoiThue_Id(id)) {
+
+            throw new BusinessException(
+                    "Không thể xóa người thuê đã tham gia hợp đồng");
+        }
+
+        nguoiThueRepository.delete(entity);
+    }
+
     private NguoiThue findEntity(Integer id) {
 
         return nguoiThueRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Không tìm thấy người thuê id = " + id
-                        )
-                );
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy người thuê id = " + id));
     }
 
     private NguoiThueResponse toResponse(NguoiThue entity) {
@@ -110,8 +121,7 @@ public class NguoiThueService {
                 entity.getCccd(),
                 entity.getSoDienThoai(),
                 entity.getNgaySinh(),
-                entity.getDiaChiThuongTru()
-        );
+                entity.getDiaChiThuongTru());
     }
 
     private String trimToNull(String value) {
