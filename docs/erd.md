@@ -3,9 +3,11 @@ erDiagram
     PHONG ||--o{ HOP_DONG : "có"
     HOP_DONG ||--|{ THANH_VIEN_HOP_DONG : "gồm"
     NGUOI_THUE ||--o{ THANH_VIEN_HOP_DONG : "tham gia"
+
     HOP_DONG ||--o{ HOA_DON : "phát sinh"
     HOA_DON ||--|{ CHI_TIET_HOA_DON : "gồm"
     DICH_VU ||--o{ CHI_TIET_HOA_DON : "được tính"
+
     HOA_DON ||--o{ THANH_TOAN : "được thanh toán"
 
     PHONG {
@@ -49,6 +51,7 @@ erDiagram
         date ky_thanh_toan
         date ngay_lap
         date han_thanh_toan
+        decimal tien_phong
         string trang_thai
     }
 
@@ -58,6 +61,7 @@ erDiagram
         string don_vi_tinh
         decimal don_gia_hien_tai
         boolean tinh_theo_chi_so
+        boolean dang_hoat_dong
     }
 
     CHI_TIET_HOA_DON {
