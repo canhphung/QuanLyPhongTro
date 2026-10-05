@@ -6,8 +6,6 @@ import com.project.QLPT.entity.ThanhVienHopDong;
 import com.project.QLPT.entity.id.ThanhVienHopDongId;
 
 public interface ThanhVienHopDongRepository
-        extends JpaRepository<
-            ThanhVienHopDong,
-            ThanhVienHopDongId
-        > {
+        extends JpaRepository<ThanhVienHopDong, ThanhVienHopDongId> {
+    boolean existsByNguoiThue_Id(Integer nguoiThueId);
 }
