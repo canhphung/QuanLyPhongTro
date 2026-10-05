@@ -1,9 +1,15 @@
 package com.project.QLPT.entity;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+import com.project.QLPT.enums.PhuongThucThanhToan;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -15,12 +21,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
-import com.project.QLPT.enums.PhuongThucThanhToan;
-import com.project.QLPT.entity.HoaDon;
 
 @Entity
 @Table(name = "thanh_toan")

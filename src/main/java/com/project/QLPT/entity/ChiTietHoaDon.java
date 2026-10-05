@@ -1,8 +1,11 @@
 
 package com.project.QLPT.entity;
 
+import java.math.BigDecimal;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -14,11 +17,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.math.BigDecimal;
-
-import com.project.QLPT.entity.HoaDon;
-import com.project.QLPT.entity.DichVu;
 
 @Entity
 @Table(name = "chi_tiet_hoa_don")
