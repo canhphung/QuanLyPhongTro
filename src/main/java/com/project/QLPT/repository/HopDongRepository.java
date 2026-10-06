@@ -17,8 +17,8 @@ public interface HopDongRepository
   /**
    * Kiểm tra xem một phòng có tồn tại hợp đồng với trạng thái được chỉ định hay không.
    *
-   * <p>Phương thức này có thể được sử dụng để kiểm tra phòng đã có
-   * hợp đồng đang hoạt động trước khi tạo hợp đồng mới.</p>
+   * <p>Phương thức này thường được sử dụng để kiểm tra phòng đã có
+   * hợp đồng đang hiệu lực trước khi tạo hợp đồng mới.</p>
    *
    * @param phongId   mã định danh của phòng cần kiểm tra
    * @param trangThai trạng thái hợp đồng cần kiểm tra
@@ -28,4 +28,19 @@ public interface HopDongRepository
   boolean existsByPhong_IdAndTrangThai(
       Integer phongId,
       TrangThaiHopDong trangThai);
+
+  /**
+   * Kiểm tra xem một phòng có được tham chiếu bởi bất kỳ hợp đồng nào trong hệ thống hay không.
+   *
+   * <p>Phương thức này không xét trạng thái của hợp đồng. Chỉ cần tồn tại
+   * ít nhất một hợp đồng liên kết với phòng thì kết quả sẽ là {@code true}.</p>
+   *
+   * <p>Có thể sử dụng phương thức này trước khi xóa phòng để tránh xóa
+   * phòng đã phát sinh lịch sử hợp đồng.</p>
+   *
+   * @param phongId mã định danh của phòng cần kiểm tra
+   * @return {@code true} nếu phòng đã được sử dụng trong ít nhất một hợp đồng, {@code false} nếu
+   * chưa có hợp đồng nào
+   */
+  boolean existsByPhong_Id(Integer phongId);
 }
