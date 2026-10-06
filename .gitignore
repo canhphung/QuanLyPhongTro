@@ -18,6 +18,14 @@ backend/.factorypath
 # VS Code
 .vscode/
 *.code-workspace
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
 # Java compiled files
 *.class
@@ -29,6 +37,7 @@ backend/.factorypath
 
 frontend/node_modules/
 frontend/dist/
+frontend/dist-ssr/
 frontend/coverage/
 
 # npm / yarn / pnpm logs
@@ -36,6 +45,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
 # ==========================================
 # Environment variables / Secrets
@@ -44,6 +54,7 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
+*.local
 
 # Local Spring Boot configuration
 backend/src/main/resources/application-local.properties
