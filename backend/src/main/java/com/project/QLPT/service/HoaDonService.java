@@ -289,25 +289,31 @@ public class HoaDonService {
      */
     private HoaDonResponse toResponse(HoaDon entity, boolean withDetail) {
 
-        List<ChiTietHoaDonResponse> chiTietHoaDons = withDetail
-                ? chiTietHoaDonRepository
-                        .findByHoaDon_Id(entity.getId())
-                        .stream()
-                        .map(this::toChiTietResponse)
-                        .toList()
-                : List.of();
+        // Luôn lấy đầy đủ chi tiết để tính tổng tiền.
+        List<ChiTietHoaDonResponse> tatCaChiTiet =
+            chiTietHoaDonRepository
+                .findByHoaDon_Id(entity.getId())
+                .stream()
+                .map(this::toChiTietResponse)
+                .toList();
+
+        BigDecimal tongTien = tinhTongTien(entity, tatCaChiTiet);
+
+        // Chỉ quyết định có trả chi tiết cho client hay không.
+        List<ChiTietHoaDonResponse> chiTietTraVe =
+            withDetail ? tatCaChiTiet : List.of();
 
         return new HoaDonResponse(
-                entity.getId(),
-                entity.getHopDong().getId(),
-                entity.getHopDong().getPhong().getSoPhong(),
-                entity.getKyThanhToan(),
-                entity.getNgayLap(),
-                entity.getHanThanhToan(),
-                entity.getTienPhong(),
-                tinhTongTien(entity, chiTietHoaDons),
-                entity.getTrangThai(),
-                chiTietHoaDons);
+            entity.getId(),
+            entity.getHopDong().getId(),
+            entity.getHopDong().getPhong().getSoPhong(),
+            entity.getKyThanhToan(),
+            entity.getNgayLap(),
+            entity.getHanThanhToan(),
+            entity.getTienPhong(),
+            tongTien,
+            entity.getTrangThai(),
+            chiTietTraVe);
     }
 
     /**

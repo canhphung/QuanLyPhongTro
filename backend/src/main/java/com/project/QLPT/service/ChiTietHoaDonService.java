@@ -83,9 +83,17 @@ public class ChiTietHoaDonService {
         }
 
         BigDecimal soLuong = tinhSoLuong(dichVu, request);
-        BigDecimal donGia = request.donGia() != null
-                ? request.donGia()
-                : dichVu.getDonGiaHienTai();
+
+        // Đơn giá được chốt từ dữ liệu dịch vụ trên server.
+        BigDecimal donGia = dichVu.getDonGiaHienTai();
+
+        // Giữ tương thích với request cũ có gửi donGia,
+        // nhưng không cho client tự chọn giá khác.
+        if (request.donGia() != null
+            && request.donGia().compareTo(donGia) != 0) {
+            throw new BusinessException(
+                "Đơn giá phải bằng đơn giá hiện tại của dịch vụ");
+        }
 
         ChiTietHoaDon entity = ChiTietHoaDon.builder()
                 .hoaDon(hoaDon)
@@ -137,9 +145,9 @@ public class ChiTietHoaDonService {
      */
     @Transactional
     public ChiTietHoaDonResponse update(
-            Integer hoaDonId,
-            Integer chiTietId,
-            ChiTietHoaDonRequest request) {
+        Integer hoaDonId,
+        Integer chiTietId,
+        ChiTietHoaDonRequest request) {
 
         HoaDon hoaDon = findHoaDon(hoaDonId);
 
@@ -149,28 +157,26 @@ public class ChiTietHoaDonService {
 
         if (!entity.getDichVu().getId().equals(request.dichVuId())) {
             throw new BusinessException(
-                    "Không thể chuyển dòng chi tiết sang dịch vụ khác; "
-                            + "vui lòng xóa dòng cũ và thêm dịch vụ mới");
+                "Không thể chuyển dòng chi tiết sang dịch vụ khác; "
+                    + "vui lòng xóa dòng cũ và thêm dịch vụ mới");
+        }
+
+        // Nếu client gửi giá, giá phải bằng giá đã chốt.
+        if (request.donGia() != null
+            && request.donGia().compareTo(entity.getDonGia()) != 0) {
+            throw new BusinessException(
+                "Không được thay đổi đơn giá đã chốt của dòng hóa đơn");
         }
 
         DichVu dichVu = entity.getDichVu();
 
-        if (chiTietHoaDonRepository
-                .existsByHoaDon_IdAndDichVu_Id(
-                        hoaDonId,
-                        dichVu.getId())
-                && !entity.getId().equals(chiTietId)) {
-            throw new BusinessException(
-                    "Dịch vụ đã có trong hóa đơn này");
-        }
+        BigDecimal soLuong = tinhSoLuong(dichVu, request);
 
         entity.setChiSoCu(request.chiSoCu());
         entity.setChiSoMoi(request.chiSoMoi());
-        entity.setSoLuong(tinhSoLuong(dichVu, request));
-        entity.setDonGia(request.donGia() != null
-                ? request.donGia()
-                : dichVu.getDonGiaHienTai());
+        entity.setSoLuong(soLuong);
 
+        // Không gọi setDonGia: giữ nguyên giá lịch sử.
         return toResponse(entity);
     }
 
