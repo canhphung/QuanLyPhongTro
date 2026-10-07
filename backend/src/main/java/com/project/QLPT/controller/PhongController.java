@@ -19,7 +19,6 @@ import lombok.RequiredArgsConstructor;
  * <p>Hỗ trợ các chức năng tạo mới, xem chi tiết, lấy danh sách,
  * lọc phòng theo trạng thái, cập nhật và xóa phòng.</p>
  */
-@CrossOrigin(origins = "http://localhost:5173")
 @RestController
 @RequestMapping("/api/phong")
 @RequiredArgsConstructor
