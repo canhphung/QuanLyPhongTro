@@ -88,13 +88,19 @@ public class ThanhToanService {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public ThanhToanResponse update(Integer id, ThanhToanRequest request) {
+
         validateRequest(request);
-        ThanhToan entity = findThanhToanForUpdate(id);
-        if (!entity.getHoaDon().getId().equals(request.hoaDonId())) {
-            throw new BusinessException("Không thể chuyển thanh toán sang hóa đơn khác");
+
+        // Đọc để xác định hóa đơn; chưa khóa khoản thu.
+        Integer hoaDonId = findEntity(id).getHoaDon().getId();
+
+        if (!hoaDonId.equals(request.hoaDonId())) {
+            throw new BusinessException(
+                "Không thể chuyển thanh toán sang hóa đơn khác");
         }
 
-        HoaDon hoaDon = findHoaDonForUpdate(entity.getHoaDon().getId());
+        HoaDon hoaDon = findHoaDonForUpdate(hoaDonId);
+        ThanhToan entity = findThanhToanForUpdate(id);
         BigDecimal tongTien = tinhTongTien(hoaDon);
         // Trừ khoản cũ trước khi kiểm tra khoản mới để không cộng trùng.
         BigDecimal tongSauSua = tinhDaThanhToan(hoaDon.getId())
@@ -114,10 +120,17 @@ public class ThanhToanService {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void delete(Integer id) {
+
+        Integer hoaDonId = findEntity(id).getHoaDon().getId();
+
+        HoaDon hoaDon = findHoaDonForUpdate(hoaDonId);
         ThanhToan entity = findThanhToanForUpdate(id);
-        HoaDon hoaDon = findHoaDonForUpdate(entity.getHoaDon().getId());
-        BigDecimal tongSauXoa = tinhDaThanhToan(hoaDon.getId()).subtract(entity.getSoTien());
+
+        BigDecimal tongSauXoa = tinhDaThanhToan(hoaDonId)
+            .subtract(entity.getSoTien());
+
         BigDecimal tongTien = tinhTongTien(hoaDon);
+
         thanhToanRepository.delete(entity);
         capNhatTrangThai(hoaDon, tongSauXoa, tongTien);
     }
@@ -191,10 +204,20 @@ public class ThanhToanService {
     }
 
     private ThanhToan findThanhToanForUpdate(Integer id) {
-        ThanhToan entity = entityManager.find(ThanhToan.class, id, LockModeType.PESSIMISTIC_WRITE);
+
+        ThanhToan entity = entityManager.find(
+            ThanhToan.class,
+            id,
+            LockModeType.PESSIMISTIC_WRITE);
+
         if (entity == null) {
-            throw new ResourceNotFoundException("Không tìm thấy thanh toán id = " + id);
+            throw new ResourceNotFoundException(
+                "Không tìm thấy thanh toán id = " + id);
         }
+
+        // Entity có thể đã được đọc trước khi chờ khóa hóa đơn.
+        entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
+
         return entity;
     }
 

@@ -1,11 +1,18 @@
 package com.project.QLPT.service;
 
+import com.project.QLPT.repository.ThanhToanRepository;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 
 import com.project.QLPT.dto.request.HoaDonRequest;
 import com.project.QLPT.dto.response.ChiTietHoaDonResponse;
@@ -41,6 +48,10 @@ public class HoaDonService {
     private final HoaDonRepository hoaDonRepository;
     private final HopDongRepository hopDongRepository;
     private final ChiTietHoaDonRepository chiTietHoaDonRepository;
+    private final ThanhToanRepository thanhToanRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     /**
      * Tạo mới một hóa đơn cho một kỳ thanh toán.
@@ -178,10 +189,10 @@ public class HoaDonService {
      *                                   hợp đồng, trùng kỳ hoặc hạn thanh
      *                                   toán không hợp lệ
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public HoaDonResponse update(Integer id, HoaDonRequest request) {
 
-        HoaDon entity = findEntity(id);
+        HoaDon entity = findHoaDonForUpdate(id);
 
         validateChuaThanhToan(entity);
 
@@ -227,10 +238,10 @@ public class HoaDonService {
      * @throws ResourceNotFoundException nếu không tìm thấy hóa đơn
      * @throws BusinessException         nếu hóa đơn đã bắt đầu thanh toán
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void delete(Integer id) {
 
-        HoaDon entity = findEntity(id);
+        HoaDon entity = findHoaDonForUpdate(id);
 
         validateChuaThanhToan(entity);
 
@@ -246,9 +257,13 @@ public class HoaDonService {
      */
     private void validateChuaThanhToan(HoaDon entity) {
 
-        if (entity.getTrangThai() != TrangThaiHoaDon.CHUA_THANH_TOAN) {
+        boolean daCoKhoanThu =
+            thanhToanRepository.existsByHoaDon_Id(entity.getId());
+
+        if (daCoKhoanThu
+            || entity.getTrangThai() != TrangThaiHoaDon.CHUA_THANH_TOAN) {
             throw new BusinessException(
-                    "Chỉ chỉnh sửa hóa đơn chưa thanh toán");
+                "Không được sửa hoặc xóa hóa đơn đã có thanh toán");
         }
     }
 
@@ -371,5 +386,23 @@ public class HoaDonService {
         return entity.getSoLuong()
                 .multiply(entity.getDonGia())
                 .setScale(0, RoundingMode.HALF_UP);
+    }
+
+    private HoaDon findHoaDonForUpdate(Integer id) {
+
+        HoaDon entity = entityManager.find(
+            HoaDon.class,
+            id,
+            LockModeType.PESSIMISTIC_WRITE);
+
+        if (entity == null) {
+            throw new ResourceNotFoundException(
+                "Không tìm thấy hóa đơn id = " + id);
+        }
+
+        // Đọc lại dữ liệu mới nhất sau khi lấy khóa.
+        entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
+
+        return entity;
     }
 }

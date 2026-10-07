@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.project.QLPT.dto.request.ChiTietHoaDonRequest;
@@ -18,17 +19,26 @@ import com.project.QLPT.exception.ResourceNotFoundException;
 import com.project.QLPT.repository.ChiTietHoaDonRepository;
 import com.project.QLPT.repository.DichVuRepository;
 import com.project.QLPT.repository.HoaDonRepository;
+import com.project.QLPT.repository.ThanhToanRepository;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 
 import lombok.RequiredArgsConstructor;
 
 /**
- * Service xử lý các nghiệp vụ liên quan đến chi tiết hóa đơn (dòng dịch vụ).
+ * Xử lý nghiệp vụ dòng dịch vụ của hóa đơn.
  *
  * <p>
- * Mỗi dòng chi tiết gắn một dịch vụ với một hóa đơn. Tùy theo dịch vụ tính
- * theo chỉ số hay theo số lượng mà hệ thống tự tính ra {@code soLuong}.
- * Chỉ hóa đơn ở trạng thái chưa thanh toán mới được thêm, sửa hoặc xóa dòng
- * chi tiết. Một dịch vụ chỉ xuất hiện tối đa một lần trong một hóa đơn.
+ * Các thao tác thêm, sửa và xóa đều khóa hóa đơn trước khi kiểm tra
+ * điều kiện nghiệp vụ. Không cho phép chỉnh sửa khi hóa đơn đã có
+ * khoản thanh toán hoặc không còn ở trạng thái chưa thanh toán.
+ * </p>
+ *
+ * <p>
+ * Đơn giá được chốt từ dịch vụ khi tạo dòng chi tiết và được giữ nguyên
+ * khi cập nhật chỉ số hoặc số lượng.
  * </p>
  */
 @Service
@@ -38,57 +48,53 @@ public class ChiTietHoaDonService {
     private final ChiTietHoaDonRepository chiTietHoaDonRepository;
     private final HoaDonRepository hoaDonRepository;
     private final DichVuRepository dichVuRepository;
+    private final ThanhToanRepository thanhToanRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     /**
-     * Thêm một dòng chi tiết dịch vụ vào hóa đơn.
+     * Thêm một dòng dịch vụ vào hóa đơn.
      *
      * <p>
-     * Hóa đơn phải tồn tại và chưa thanh toán. Dịch vụ phải tồn tại, còn
-     * hoạt động và chưa xuất hiện trong hóa đơn này. Số lượng được tính
-     * theo cấu hình trước của dịch vụ; đơn giá được lấy từ yêu cầu hoặc
-     * mặc định bằng đơn giá hiện tại của dịch vụ.
+     * Dịch vụ phải đang hoạt động và chưa xuất hiện trong hóa đơn.
+     * Đơn giá được lấy từ dữ liệu dịch vụ trên server. Nếu request
+     * gửi đơn giá, giá đó phải bằng đơn giá hiện tại.
      * </p>
      *
-     * @param hoaDonId mã hóa đơn cần thêm dòng chi tiết
-     * @param request  thông tin dòng chi tiết cần thêm
-     * @return thông tin dòng chi tiết sau khi được lưu
-     * @throws ResourceNotFoundException nếu không tìm thấy hóa đơn hoặc dịch
-     *                                   vụ
-     * @throws BusinessException         nếu hóa đơn đã thanh toán, dịch vụ
-     *                                   ngừng hoạt động, trùng dịch vụ hoặc
-     *                                   dữ liệu chỉ số/ số lượng không hợp
-     *                                   lệ
+     * @param hoaDonId mã hóa đơn
+     * @param request thông tin dòng dịch vụ
+     * @return dòng chi tiết sau khi lưu
+     * @throws ResourceNotFoundException nếu không tìm thấy hóa đơn hoặc dịch vụ
+     * @throws BusinessException nếu hóa đơn không cho phép chỉnh sửa,
+     *                           dịch vụ không hợp lệ hoặc dữ liệu không hợp lệ
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public ChiTietHoaDonResponse create(
-            Integer hoaDonId,
-            ChiTietHoaDonRequest request) {
+        Integer hoaDonId,
+        ChiTietHoaDonRequest request) {
 
-        HoaDon hoaDon = findHoaDon(hoaDonId);
+        HoaDon hoaDon = findHoaDonForUpdate(hoaDonId);
 
         validateChuaThanhToan(hoaDon);
 
         DichVu dichVu = findDichVu(request.dichVuId());
 
         if (!Boolean.TRUE.equals(dichVu.getDangHoatDong())) {
-            throw new BusinessException("Dịch vụ đã ngừng hoạt động");
+            throw new BusinessException(
+                "Dịch vụ đã ngừng hoạt động");
         }
 
-        if (chiTietHoaDonRepository
-                .existsByHoaDon_IdAndDichVu_Id(
-                        hoaDonId,
-                        dichVu.getId())) {
+        if (chiTietHoaDonRepository.existsByHoaDon_IdAndDichVu_Id(
+            hoaDonId,
+            dichVu.getId())) {
             throw new BusinessException(
-                    "Dịch vụ đã có trong hóa đơn này");
+                "Dịch vụ đã có trong hóa đơn này");
         }
 
         BigDecimal soLuong = tinhSoLuong(dichVu, request);
-
-        // Đơn giá được chốt từ dữ liệu dịch vụ trên server.
         BigDecimal donGia = dichVu.getDonGiaHienTai();
 
-        // Giữ tương thích với request cũ có gửi donGia,
-        // nhưng không cho client tự chọn giá khác.
         if (request.donGia() != null
             && request.donGia().compareTo(donGia) != 0) {
             throw new BusinessException(
@@ -96,23 +102,22 @@ public class ChiTietHoaDonService {
         }
 
         ChiTietHoaDon entity = ChiTietHoaDon.builder()
-                .hoaDon(hoaDon)
-                .dichVu(dichVu)
-                .chiSoCu(request.chiSoCu())
-                .chiSoMoi(request.chiSoMoi())
-                .soLuong(soLuong)
-                .donGia(donGia)
-                .build();
+            .hoaDon(hoaDon)
+            .dichVu(dichVu)
+            .chiSoCu(request.chiSoCu())
+            .chiSoMoi(request.chiSoMoi())
+            .soLuong(soLuong)
+            .donGia(donGia)
+            .build();
 
-        return toResponse(
-                chiTietHoaDonRepository.save(entity));
+        return toResponse(chiTietHoaDonRepository.save(entity));
     }
 
     /**
-     * Lấy danh sách dòng chi tiết của một hóa đơn.
+     * Lấy danh sách dòng dịch vụ của một hóa đơn.
      *
-     * @param hoaDonId mã hóa đơn cần lấy chi tiết
-     * @return danh sách dòng chi tiết của hóa đơn
+     * @param hoaDonId mã hóa đơn
+     * @return danh sách dòng chi tiết
      * @throws ResourceNotFoundException nếu không tìm thấy hóa đơn
      */
     @Transactional(readOnly = true)
@@ -121,35 +126,35 @@ public class ChiTietHoaDonService {
         findHoaDon(hoaDonId);
 
         return chiTietHoaDonRepository.findByHoaDon_Id(hoaDonId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
+            .stream()
+            .map(this::toResponse)
+            .toList();
     }
 
     /**
-     * Cập nhật một dòng chi tiết trong hóa đơn.
+     * Cập nhật chỉ số hoặc số lượng của một dòng dịch vụ.
      *
      * <p>
-     * Không cho phép chuyển dòng chi tiết sang hóa đơn khác cũng như đổi
-     * sang dịch vụ đã có sẵn trong hóa đơn.
+     * Không cho phép đổi dịch vụ hoặc đơn giá đã chốt.
+     * Request có thể bỏ đơn giá hoặc gửi đúng đơn giá cũ.
      * </p>
      *
-     * @param hoaDonId  mã hóa đơn chứa dòng chi tiết
-     * @param chiTietId mã dòng chi tiết cần cập nhật
-     * @param request   thông tin mới của dòng chi tiết
-     * @return thông tin dòng chi tiết sau khi cập nhật
-     * @throws ResourceNotFoundException nếu không tìm thấy hóa đơn, dịch vụ
-     *                                   hoặc dòng chi tiết
-     * @throws BusinessException         nếu hóa đơn đã thanh toán hoặc dữ
-     *                                   liệu chỉ số/ số lượng không hợp lệ
+     * @param hoaDonId mã hóa đơn chứa dòng chi tiết
+     * @param chiTietId mã dòng chi tiết
+     * @param request thông tin cập nhật
+     * @return dòng chi tiết sau khi cập nhật
+     * @throws ResourceNotFoundException nếu không tìm thấy hóa đơn
+     *                                  hoặc dòng chi tiết thuộc hóa đơn
+     * @throws BusinessException nếu hóa đơn không cho phép chỉnh sửa,
+     *                           thay đổi dịch vụ/đơn giá hoặc dữ liệu không hợp lệ
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public ChiTietHoaDonResponse update(
         Integer hoaDonId,
         Integer chiTietId,
         ChiTietHoaDonRequest request) {
 
-        HoaDon hoaDon = findHoaDon(hoaDonId);
+        HoaDon hoaDon = findHoaDonForUpdate(hoaDonId);
 
         validateChuaThanhToan(hoaDon);
 
@@ -161,77 +166,65 @@ public class ChiTietHoaDonService {
                     + "vui lòng xóa dòng cũ và thêm dịch vụ mới");
         }
 
-        // Nếu client gửi giá, giá phải bằng giá đã chốt.
         if (request.donGia() != null
             && request.donGia().compareTo(entity.getDonGia()) != 0) {
             throw new BusinessException(
                 "Không được thay đổi đơn giá đã chốt của dòng hóa đơn");
         }
 
-        DichVu dichVu = entity.getDichVu();
-
-        BigDecimal soLuong = tinhSoLuong(dichVu, request);
+        BigDecimal soLuong = tinhSoLuong(entity.getDichVu(), request);
 
         entity.setChiSoCu(request.chiSoCu());
         entity.setChiSoMoi(request.chiSoMoi());
         entity.setSoLuong(soLuong);
 
-        // Không gọi setDonGia: giữ nguyên giá lịch sử.
+        // Giữ nguyên entity.donGia để bảo toàn giá lịch sử.
         return toResponse(entity);
     }
 
     /**
-     * Xóa một dòng chi tiết khỏi hóa đơn.
+     * Xóa một dòng dịch vụ khỏi hóa đơn chưa có khoản thanh toán.
      *
-     * @param hoaDonId  mã hóa đơn chứa dòng chi tiết
-     * @param chiTietId mã dòng chi tiết cần xóa
-     * @throws ResourceNotFoundException nếu không tìm thấy hóa đơn hoặc dòng
-     *                                   chi tiết
-     * @throws BusinessException         nếu hóa đơn đã thanh toán
+     * @param hoaDonId mã hóa đơn
+     * @param chiTietId mã dòng chi tiết
+     * @throws ResourceNotFoundException nếu không tìm thấy hóa đơn
+     *                                  hoặc dòng chi tiết thuộc hóa đơn
+     * @throws BusinessException nếu hóa đơn không cho phép chỉnh sửa
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void delete(Integer hoaDonId, Integer chiTietId) {
 
-        HoaDon hoaDon = findHoaDon(hoaDonId);
+        HoaDon hoaDon = findHoaDonForUpdate(hoaDonId);
 
         validateChuaThanhToan(hoaDon);
 
-        chiTietHoaDonRepository.delete(
-                findChiTiet(hoaDonId, chiTietId));
+        ChiTietHoaDon entity = findChiTiet(hoaDonId, chiTietId);
+
+        chiTietHoaDonRepository.delete(entity);
     }
 
     /**
-     * Kiểm tra hóa đơn còn ở trạng thái chưa thanh toán.
-     *
-     * @param hoaDon hóa đơn cần kiểm tra
-     * @throws BusinessException nếu hóa đơn đã bắt đầu thanh toán
+     * Kiểm tra hóa đơn chưa có khoản thu và còn cho phép chỉnh sửa.
      */
     private void validateChuaThanhToan(HoaDon hoaDon) {
 
-        if (hoaDon.getTrangThai() != TrangThaiHoaDon.CHUA_THANH_TOAN) {
+        boolean daCoKhoanThu =
+            thanhToanRepository.existsByHoaDon_Id(hoaDon.getId());
+
+        if (daCoKhoanThu
+            || hoaDon.getTrangThai() != TrangThaiHoaDon.CHUA_THANH_TOAN) {
             throw new BusinessException(
-                    "Chỉ chỉnh sửa hóa đơn chưa thanh toán");
+                "Chỉ được thêm, sửa hoặc xóa chi tiết "
+                    + "của hóa đơn chưa thanh toán và chưa có khoản thu");
         }
     }
 
     /**
-     * Tính số lượng của dòng chi tiết dựa trên cấu hình dịch vụ.
-     *
-     * <ul>
-     * <li>Dịch vụ tính theo chỉ số: bắt buộc có chỉ số cũ và chỉ số mới,
-     * {@code soLuong = chiSoMoi - chiSoCu}.</li>
-     * <li>Dịch vụ tính theo số lượng: chỉ số phải để trống và {@code soLuong}
-     * phải lớn hơn 0.</li>
-     * </ul>
-     *
-     * @param dichVu  dịch vụ của dòng chi tiết
-     * @param request dữ liệu yêu cầu của dòng chi tiết
-     * @return số lượng đã tính
-     * @throws BusinessException nếu dữ liệu chỉ số/ số lượng không hợp lệ
+     * Tính số lượng theo cách tính của dịch vụ.
      */
     private BigDecimal tinhSoLuong(
-            DichVu dichVu,
-            ChiTietHoaDonRequest request) {
+        DichVu dichVu,
+        ChiTietHoaDonRequest request) {
 
         if (Boolean.TRUE.equals(dichVu.getTinhTheoChiSo())) {
             return tinhSoLuongTheoChiSo(request);
@@ -241,127 +234,148 @@ public class ChiTietHoaDonService {
     }
 
     /**
-     * Tính số lượng cho dịch vụ tính theo chỉ số công tơ.
+     * Tính số lượng bằng chỉ số mới trừ chỉ số cũ.
      *
-     * @param request dữ liệu yêu cầu của dòng chi tiết
-     * @return số lượng {@code = chiSoMoi - chiSoCu}
-     * @throws BusinessException nếu thiếu chỉ số hoặc chỉ số mới nhỏ hơn
-     *                           chỉ số cũ
+     * @param request dữ liệu chỉ số
+     * @return số lượng sử dụng, có thể bằng 0
+     * @throws BusinessException nếu thiếu chỉ số, chỉ số âm
+     *                           hoặc chỉ số mới nhỏ hơn chỉ số cũ
      */
-    private BigDecimal tinhSoLuongTheoChiSo(ChiTietHoaDonRequest request) {
+    private BigDecimal tinhSoLuongTheoChiSo(
+        ChiTietHoaDonRequest request) {
 
-        if (request.chiSoCu() == null || request.chiSoMoi() == null) {
+        BigDecimal chiSoCu = request.chiSoCu();
+        BigDecimal chiSoMoi = request.chiSoMoi();
+
+        if (chiSoCu == null || chiSoMoi == null) {
             throw new BusinessException(
-                    "Dịch vụ tính theo chỉ số cần có chỉ số cũ và chỉ số mới");
+                "Dịch vụ tính theo chỉ số cần có chỉ số cũ và chỉ số mới");
         }
 
-        if (request.chiSoMoi().compareTo(request.chiSoCu()) < 0) {
+        if (chiSoCu.signum() < 0 || chiSoMoi.signum() < 0) {
             throw new BusinessException(
-                    "Chỉ số mới không được nhỏ hơn chỉ số cũ");
+                "Chỉ số cũ và chỉ số mới không được âm");
         }
 
-        return request.chiSoMoi().subtract(request.chiSoCu());
+        if (chiSoMoi.compareTo(chiSoCu) < 0) {
+            throw new BusinessException(
+                "Chỉ số mới không được nhỏ hơn chỉ số cũ");
+        }
+
+        return chiSoMoi.subtract(chiSoCu);
     }
 
     /**
-     * Tính số lượng cho dịch vụ tính theo số lượng nhập tay.
+     * Lấy số lượng nhập tay cho dịch vụ không tính theo chỉ số.
      *
-     * @param request dữ liệu yêu cầu của dòng chi tiết
-     * @return số lượng người dùng nhập
-     * @throws BusinessException nếu gửi kèm chỉ số hoặc số lượng không lớn
-     *                           hơn 0
+     * @param request dữ liệu số lượng
+     * @return số lượng lớn hơn 0
+     * @throws BusinessException nếu gửi kèm chỉ số
+     *                           hoặc số lượng không lớn hơn 0
      */
-    private BigDecimal tinhSoLuongTheoSoLuong(ChiTietHoaDonRequest request) {
+    private BigDecimal tinhSoLuongTheoSoLuong(
+        ChiTietHoaDonRequest request) {
 
         if (request.chiSoCu() != null || request.chiSoMoi() != null) {
             throw new BusinessException(
-                    "Dịch vụ này không tính theo chỉ số");
+                "Dịch vụ này không tính theo chỉ số");
         }
 
         if (request.soLuong() == null
-                || request.soLuong().signum() <= 0) {
+            || request.soLuong().signum() <= 0) {
             throw new BusinessException(
-                    "Số lượng phải lớn hơn 0");
+                "Số lượng phải lớn hơn 0");
         }
 
         return request.soLuong();
     }
 
     /**
-     * Tìm entity hóa đơn theo ID.
-     *
-     * @param id ID của hóa đơn
-     * @return entity hóa đơn tương ứng
-     * @throws ResourceNotFoundException nếu không tìm thấy hóa đơn
+     * Tìm hóa đơn phục vụ thao tác đọc.
      */
     private HoaDon findHoaDon(Integer id) {
 
         return hoaDonRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Không tìm thấy hóa đơn id = " + id));
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "Không tìm thấy hóa đơn id = " + id));
     }
 
     /**
-     * Tìm entity dịch vụ theo ID.
+     * Tìm và khóa ghi hóa đơn phục vụ thao tác thay đổi dữ liệu.
      *
-     * @param id ID của dịch vụ
-     * @return entity dịch vụ tương ứng
-     * @throws ResourceNotFoundException nếu không tìm thấy dịch vụ
+     * <p>
+     * Phải gọi trong transaction và trước khi thay đổi Entity.
+     * Khóa được giữ đến khi transaction commit hoặc rollback.
+     * </p>
+     */
+    private HoaDon findHoaDonForUpdate(Integer id) {
+
+        HoaDon entity = entityManager.find(
+            HoaDon.class,
+            id,
+            LockModeType.PESSIMISTIC_WRITE);
+
+        if (entity == null) {
+            throw new ResourceNotFoundException(
+                "Không tìm thấy hóa đơn id = " + id);
+        }
+
+        // Đọc lại trạng thái mới nhất sau khi lấy khóa.
+        entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
+
+        return entity;
+    }
+
+    /**
+     * Tìm dịch vụ theo ID.
      */
     private DichVu findDichVu(Integer id) {
 
         return dichVuRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Không tìm thấy dịch vụ id = " + id));
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "Không tìm thấy dịch vụ id = " + id));
     }
 
     /**
-     * Tìm entity dòng chi tiết theo ID thuộc một hóa đơn.
-     *
-     * @param hoaDonId  mã hóa đơn chứa dòng chi tiết
-     * @param chiTietId mã dòng chi tiết cần tìm
-     * @return entity dòng chi tiết tương ứng
-     * @throws ResourceNotFoundException nếu không tìm thấy dòng chi tiết
+     * Tìm dòng chi tiết và kiểm tra dòng thuộc đúng hóa đơn.
      */
-    private ChiTietHoaDon findChiTiet(Integer hoaDonId, Integer chiTietId) {
+    private ChiTietHoaDon findChiTiet(
+        Integer hoaDonId,
+        Integer chiTietId) {
 
         ChiTietHoaDon entity = chiTietHoaDonRepository.findById(chiTietId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Không tìm thấy dòng chi tiết hóa đơn id = "
-                                + chiTietId));
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "Không tìm thấy dòng chi tiết hóa đơn id = "
+                    + chiTietId));
 
         if (!entity.getHoaDon().getId().equals(hoaDonId)) {
             throw new ResourceNotFoundException(
-                    "Dòng chi tiết id = " + chiTietId
-                            + " không thuộc hóa đơn id = " + hoaDonId);
+                "Dòng chi tiết id = " + chiTietId
+                    + " không thuộc hóa đơn id = " + hoaDonId);
         }
 
         return entity;
     }
 
     /**
-     * Chuyển đổi entity {@link ChiTietHoaDon} sang DTO
-     * {@link ChiTietHoaDonResponse}.
-     *
-     * @param entity entity dòng chi tiết cần chuyển đổi
-     * @return DTO chứa thông tin dòng chi tiết
+     * Chuyển Entity thành DTO; làm tròn thành tiền đến đồng.
      */
     private ChiTietHoaDonResponse toResponse(ChiTietHoaDon entity) {
 
         BigDecimal thanhTien = entity.getSoLuong()
-                .multiply(entity.getDonGia())
-                .setScale(0, RoundingMode.HALF_UP);
+            .multiply(entity.getDonGia())
+            .setScale(0, RoundingMode.HALF_UP);
 
         return new ChiTietHoaDonResponse(
-                entity.getId(),
-                entity.getHoaDon().getId(),
-                entity.getDichVu().getId(),
-                entity.getDichVu().getTenDichVu(),
-                entity.getDichVu().getDonViTinh(),
-                entity.getChiSoCu(),
-                entity.getChiSoMoi(),
-                entity.getSoLuong(),
-                entity.getDonGia(),
-                thanhTien);
+            entity.getId(),
+            entity.getHoaDon().getId(),
+            entity.getDichVu().getId(),
+            entity.getDichVu().getTenDichVu(),
+            entity.getDichVu().getDonViTinh(),
+            entity.getChiSoCu(),
+            entity.getChiSoMoi(),
+            entity.getSoLuong(),
+            entity.getDonGia(),
+            thanhTien);
     }
 }
