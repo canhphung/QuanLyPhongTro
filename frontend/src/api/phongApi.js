@@ -17,3 +17,16 @@ export const createPhong = async (data) => {
 
   return response.data
 }
+
+export const deletePhong = async (id) => {
+  await axiosClient.delete(`/api/phong/${id}`);
+};
+
+export const updatePhong = async ({ id, data }) => {
+  const response = await axiosClient.put(
+      `/api/phong/${id}`,
+      data
+  );
+
+  return response.data;
+};
