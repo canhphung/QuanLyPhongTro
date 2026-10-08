@@ -7,6 +7,8 @@ import PhongPage from "../pages/Phong/PhongPage";
 import NguoiThuePage from "../pages/NguoiThue/NguoiThuePage";
 import HopDongPage from "../pages/HopDong/HopDongPage";
 import HoaDonPage from "../pages/HoaDon/HoaDonPage";
+import DichVuPage from "../pages/DichVu/DichVuPage";
+import ThanhToanPage from "../pages/ThanhToan/ThanhToanPage";
 
 function AppRoutes() {
   return (
@@ -33,7 +35,15 @@ function AppRoutes() {
               path="/hoa-don"
               element={<HoaDonPage />}
           />
+          <Route path="/dich-vu" element={<DichVuPage />} />
+
+          <Route path="/thanh-toan" element={<ThanhToanPage />} />
+
         </Route>
+        
+
+
+
       </Routes>
   );
 }
