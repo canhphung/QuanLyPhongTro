@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import {
   useMutation,
@@ -7,27 +7,26 @@ import {
 } from "@tanstack/react-query";
 
 import {
-  createHopDong,
-  getAllHopDong,
-  huyHopDong,
-  ketThucHopDong,
-  updateHopDong,
-} from "../../api/hopDongApi";
+  createHoaDon,
+  deleteHoaDon,
+  getAllHoaDon,
+  updateHoaDon,
+} from "../../api/hoaDonApi";
 
-import { getAllPhong } from "../../api/phongApi";
+import { getAllHopDong } from "../../api/hopDongApi";
 
-import HopDongForm from "./components/HopDongForm";
-import HopDongTable from "./components/HopDongTable";
+import HoaDonForm from "./components/HoaDonForm";
+import HoaDonTable from "./components/HoaDonTable";
 
 const emptyForm = {
-  phongId: "",
-  ngayBatDau: "",
-  ngayKetThuc: "",
-  giaThueThoaThuan: "",
-  tienCoc: "",
+  hopDongId: "",
+  kyThanhToan: "",
+  ngayLap: "",
+  hanThanhToan: "",
+  tienPhong: "",
 };
 
-function HopDongPage() {
+function HoaDonPage() {
   const queryClient = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);
@@ -36,47 +35,27 @@ function HopDongPage() {
 
   const [formData, setFormData] = useState(emptyForm);
 
-  // Text đang nhập vào ô tìm kiếm
-  const [searchInput, setSearchInput] = useState("");
-
-  // Từ khóa đã submit (tìm kiếm phía client theo số phòng)
-  const [searchKeyword, setSearchKeyword] = useState("");
+  // Trạng thái đang lọc ("" = tất cả)
+  const [trangThaiFilter, setTrangThaiFilter] = useState("");
 
   // ==========================================
-  // GET danh sách hợp đồng / phòng
+  // GET danh sách hóa đơn / hợp đồng
   // ==========================================
 
   const {
-    data: hopDongs = [],
+    data: hoaDons = [],
     isLoading,
     isError,
   } = useQuery({
+    queryKey: ["hoa-don", trangThaiFilter],
+
+    queryFn: () => getAllHoaDon(trangThaiFilter),
+  });
+
+  const { data: hopDongs = [] } = useQuery({
     queryKey: ["hop-dong"],
     queryFn: getAllHopDong,
   });
-
-  const { data: phongs = [] } = useQuery({
-    queryKey: ["phong"],
-    queryFn: getAllPhong,
-  });
-
-  // ==========================================
-  // Lọc theo số phòng
-  // ==========================================
-
-  const filteredHopDongs = useMemo(() => {
-    if (!searchKeyword) {
-      return hopDongs;
-    }
-
-    const keyword = searchKeyword.toLowerCase();
-
-    return hopDongs.filter((hopDong) =>
-        (hopDong.soPhong || "")
-            .toLowerCase()
-            .includes(keyword)
-    );
-  }, [hopDongs, searchKeyword]);
 
   // ==========================================
   // Reset form
@@ -92,14 +71,9 @@ function HopDongPage() {
   // Refresh danh sách
   // ==========================================
 
-  const refreshHopDongList = () => {
+  const refreshHoaDonList = () => {
     queryClient.invalidateQueries({
-      queryKey: ["hop-dong"],
-    });
-
-    // Trạng thái phòng thay đổi khi lập / kết thúc / hủy hợp đồng
-    queryClient.invalidateQueries({
-      queryKey: ["phong"],
+      queryKey: ["hoa-don"],
     });
   };
 
@@ -117,8 +91,8 @@ function HopDongPage() {
     // Validation error của Spring Boot
     // Ví dụ:
     // {
-    //   ngayBatDau: "Ngày bắt đầu không được để trống",
-    //   tienCoc: "Tiền cọc không được âm"
+    //   kyThanhToan: "Kỳ thanh toán không được để trống",
+    //   hanThanhToan: "Hạn thanh toán không được sớm hơn ngày lập"
     // }
 
     if (data && typeof data === "object") {
@@ -137,10 +111,10 @@ function HopDongPage() {
   // ==========================================
 
   const createMutation = useMutation({
-    mutationFn: createHopDong,
+    mutationFn: createHoaDon,
 
     onSuccess: () => {
-      refreshHopDongList();
+      refreshHoaDonList();
       resetForm();
     },
 
@@ -148,7 +122,7 @@ function HopDongPage() {
       alert(
           getErrorMessage(
               error,
-              "Không thể thêm hợp đồng"
+              "Không thể thêm hóa đơn"
           )
       );
     },
@@ -159,10 +133,10 @@ function HopDongPage() {
   // ==========================================
 
   const updateMutation = useMutation({
-    mutationFn: updateHopDong,
+    mutationFn: updateHoaDon,
 
     onSuccess: () => {
-      refreshHopDongList();
+      refreshHoaDonList();
       resetForm();
     },
 
@@ -170,51 +144,28 @@ function HopDongPage() {
       alert(
           getErrorMessage(
               error,
-              "Không thể cập nhật hợp đồng"
+              "Không thể cập nhật hóa đơn"
           )
       );
     },
   });
 
   // ==========================================
-  // KẾT THÚC hợp đồng
+  // DELETE
   // ==========================================
 
-  const ketThucMutation = useMutation({
-    mutationFn: ketThucHopDong,
+  const deleteMutation = useMutation({
+    mutationFn: deleteHoaDon,
 
     onSuccess: () => {
-      refreshHopDongList();
-      resetForm();
+      refreshHoaDonList();
     },
 
     onError: (error) => {
       alert(
           getErrorMessage(
               error,
-              "Không thể kết thúc hợp đồng"
-          )
-      );
-    },
-  });
-
-  // ==========================================
-  // HỦY hợp đồng
-  // ==========================================
-
-  const huyMutation = useMutation({
-    mutationFn: huyHopDong,
-
-    onSuccess: () => {
-      refreshHopDongList();
-      resetForm();
-    },
-
-    onError: (error) => {
-      alert(
-          getErrorMessage(
-              error,
-              "Không thể hủy hợp đồng"
+              "Không thể xóa hóa đơn"
           )
       );
     },
@@ -234,16 +185,15 @@ function HopDongPage() {
   // Mở form sửa
   // ==========================================
 
-  const handleEdit = (hopDong) => {
-    setEditingId(hopDong.id);
+  const handleEdit = (hoaDon) => {
+    setEditingId(hoaDon.id);
 
     setFormData({
-      phongId: hopDong.phongId || "",
-      ngayBatDau: hopDong.ngayBatDau || "",
-      ngayKetThuc: hopDong.ngayKetThuc || "",
-      giaThueThoaThuan:
-          hopDong.giaThueThoaThuan || "",
-      tienCoc: hopDong.tienCoc || "",
+      hopDongId: hoaDon.hopDongId || "",
+      kyThanhToan: hoaDon.kyThanhToan || "",
+      ngayLap: hoaDon.ngayLap || "",
+      hanThanhToan: hoaDon.hanThanhToan || "",
+      tienPhong: hoaDon.tienPhong || "",
     });
 
     setShowForm(true);
@@ -270,17 +220,18 @@ function HopDongPage() {
     event.preventDefault();
 
     const data = {
-      phongId: Number(formData.phongId),
+      hopDongId: Number(formData.hopDongId),
 
-      ngayBatDau: formData.ngayBatDau,
+      kyThanhToan: formData.kyThanhToan,
 
-      ngayKetThuc: formData.ngayKetThuc,
+      ngayLap: formData.ngayLap,
 
-      giaThueThoaThuan: Number(
-          formData.giaThueThoaThuan
-      ),
+      hanThanhToan: formData.hanThanhToan,
 
-      tienCoc: Number(formData.tienCoc),
+      tienPhong:
+          formData.tienPhong === ""
+              ? null
+              : Number(formData.tienPhong),
     };
 
     if (editingId !== null) {
@@ -296,59 +247,38 @@ function HopDongPage() {
   };
 
   // ==========================================
-  // Kết thúc hợp đồng
+  // Xóa
   // ==========================================
 
-  const handleKetThuc = (hopDong) => {
-    const confirmKetThuc = window.confirm(
-        `Bạn có chắc chắn muốn kết thúc hợp đồng phòng "${hopDong.soPhong}"?`
+  const handleDelete = (hoaDon) => {
+    const confirmDelete = window.confirm(
+        `Bạn có chắc chắn muốn xóa hóa đơn "${hoaDon.soPhong}" kỳ ${hoaDon.kyThanhToan}?`
     );
 
-    if (confirmKetThuc) {
-      ketThucMutation.mutate(hopDong.id);
+    if (confirmDelete) {
+      deleteMutation.mutate(hoaDon.id);
     }
   };
 
   // ==========================================
-  // Hủy hợp đồng
+  // Lọc theo trạng thái
   // ==========================================
 
-  const handleHuy = (hopDong) => {
-    const confirmHuy = window.confirm(
-        `Bạn có chắc chắn muốn hủy hợp đồng phòng "${hopDong.soPhong}"?`
-    );
-
-    if (confirmHuy) {
-      huyMutation.mutate(hopDong.id);
-    }
+  const handleFilterChange = (event) => {
+    setTrangThaiFilter(event.target.value);
   };
 
   // ==========================================
-  // Tìm kiếm
+  // Xóa lọc
   // ==========================================
 
-  const handleSearch = (event) => {
-    event.preventDefault();
-
-    setSearchKeyword(searchInput.trim());
-  };
-
-  // ==========================================
-  // Xóa tìm kiếm
-  // ==========================================
-
-  const handleClearSearch = () => {
-    setSearchInput("");
-    setSearchKeyword("");
+  const handleClearFilter = () => {
+    setTrangThaiFilter("");
   };
 
   const isSaving =
       createMutation.isPending ||
       updateMutation.isPending;
-
-  const isProcessing =
-      ketThucMutation.isPending ||
-      huyMutation.isPending;
 
   // ==========================================
   // Loading
@@ -365,7 +295,7 @@ function HopDongPage() {
   if (isError) {
     return (
         <p className="text-red-500">
-          Không thể tải danh sách hợp đồng
+          Không thể tải danh sách hóa đơn
         </p>
     );
   }
@@ -376,44 +306,49 @@ function HopDongPage() {
 
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold">
-            Quản lý hợp đồng
+            Quản lý hóa đơn
           </h1>
 
           <button
               onClick={handleAdd}
               className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
           >
-            + Thêm hợp đồng
+            + Thêm hóa đơn
           </button>
         </div>
 
-        {/* SEARCH */}
+        {/* FILTER */}
 
         <form
-            onSubmit={handleSearch}
+            onSubmit={(event) => event.preventDefault()}
             className="mb-6 flex gap-2"
         >
-          <input
-              type="text"
-              value={searchInput}
-              onChange={(event) =>
-                  setSearchInput(event.target.value)
-              }
-              placeholder="Tìm kiếm theo số phòng..."
+          <select
+              value={trangThaiFilter}
+              onChange={handleFilterChange}
               className="w-full max-w-md rounded border bg-white px-3 py-2 outline-none focus:border-blue-500"
-          />
-
-          <button
-              type="submit"
-              className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
           >
-            Tìm kiếm
-          </button>
+            <option value="">
+              -- Tất cả trạng thái --
+            </option>
 
-          {searchKeyword && (
+            <option value="CHUA_THANH_TOAN">
+              Chưa thanh toán
+            </option>
+
+            <option value="THANH_TOAN_MOT_PHAN">
+              Thanh toán một phần
+            </option>
+
+            <option value="DA_THANH_TOAN">
+              Đã thanh toán
+            </option>
+          </select>
+
+          {trangThaiFilter && (
               <button
                   type="button"
-                  onClick={handleClearSearch}
+                  onClick={handleClearFilter}
                   className="rounded bg-gray-200 px-4 py-2 hover:bg-gray-300"
               >
                 Xóa lọc
@@ -424,10 +359,10 @@ function HopDongPage() {
         {/* FORM */}
 
         {showForm && (
-            <HopDongForm
+            <HoaDonForm
                 formData={formData}
                 editingId={editingId}
-                phongs={phongs}
+                hopDongs={hopDongs}
                 isSaving={isSaving}
                 onChange={handleChange}
                 onSubmit={handleSubmit}
@@ -437,15 +372,14 @@ function HopDongPage() {
 
         {/* TABLE */}
 
-        <HopDongTable
-            hopDongs={filteredHopDongs}
+        <HoaDonTable
+            hoaDons={hoaDons}
             onEdit={handleEdit}
-            onKetThuc={handleKetThuc}
-            onHuy={handleHuy}
-            isProcessing={isProcessing}
+            onDelete={handleDelete}
+            isDeleting={deleteMutation.isPending}
         />
       </div>
   );
 }
 
-export default HopDongPage;
+export default HoaDonPage;
