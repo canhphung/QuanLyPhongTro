@@ -152,10 +152,23 @@ public class ThanhVienHopDongService {
     }
 
     private HopDong findHopDongForUpdate(Integer id) {
-        HopDong entity = entityManager.find(HopDong.class, id, LockModeType.PESSIMISTIC_WRITE);
+        HopDong entity = entityManager.find(
+            HopDong.class,
+            id,
+            LockModeType.PESSIMISTIC_WRITE
+        );
+
         if (entity == null) {
-            throw new ResourceNotFoundException("Không tìm thấy hợp đồng id = " + id);
+            throw new ResourceNotFoundException(
+                "Không tìm thấy hợp đồng id = " + id
+            );
         }
+
+        entityManager.refresh(
+            entity,
+            LockModeType.PESSIMISTIC_WRITE
+        );
+
         return entity;
     }
 
