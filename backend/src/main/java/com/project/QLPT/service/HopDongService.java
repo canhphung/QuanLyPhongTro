@@ -1,7 +1,10 @@
 package com.project.QLPT.service;
 
 import java.util.List;
+import java.time.LocalDate;
+import java.time.ZoneId;
 
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,7 +14,9 @@ import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 
 import com.project.QLPT.dto.request.HopDongRequest;
+import com.project.QLPT.dto.request.KetThucHopDongRequest;
 import com.project.QLPT.dto.response.HopDongResponse;
+import org.springframework.transaction.annotation.Isolation;
 import com.project.QLPT.entity.HopDong;
 import com.project.QLPT.entity.ThanhVienHopDong;
 import com.project.QLPT.entity.Phong;
@@ -185,19 +190,91 @@ public class HopDongService {
    * @throws BusinessException         nếu hợp đồng không đang hiệu lực
    */
   @Transactional(isolation = Isolation.READ_COMMITTED)
-  public HopDongResponse ketThuc(Integer id) {
+  public HopDongResponse ketThuc(
+      Integer id,
+      KetThucHopDongRequest request
+  ) {
+    // Helper ở phần 1: khóa phòng trước, hợp đồng sau;
+    // refresh hợp đồng sau khi lấy khóa.
     HopDong entity = findHopDongForClose(id);
 
     if (entity.getTrangThai() != TrangThaiHopDong.DANG_HIEU_LUC) {
       throw new BusinessException(
-          "Hợp đồng không đang hiệu lực"
+          "Chỉ kết thúc hợp đồng đang hiệu lực"
       );
     }
 
+    LocalDate ngayKetThuc = getNgayKetThuc(request, entity);
+
+    LocalDate homNay = LocalDate.now(
+        ZoneId.of("Asia/Ho_Chi_Minh")
+    );
+
+    if (ngayKetThuc.isAfter(homNay)) {
+      throw new BusinessException(
+          "Chỉ ghi nhận kết thúc khi đã thực tế trả phòng"
+      );
+    }
+
+    List<ThanhVienHopDong> thanhViens =
+        thanhVienHopDongRepository
+            .findByHopDong_IdOrderByNgayVaoAsc(id);
+
+    // Kiểm tra toàn bộ trước khi thay đổi dữ liệu.
+    for (ThanhVienHopDong thanhVien : thanhViens) {
+      if (thanhVien.getNgayVao().isAfter(ngayKetThuc)) {
+        throw new BusinessException(
+            "Ngày kết thúc thực tế trước ngày vào của người thuê id = "
+                + thanhVien.getNguoiThue().getId()
+        );
+      }
+
+      if (thanhVien.getNgayRoi() != null
+          && thanhVien.getNgayRoi().isAfter(ngayKetThuc)) {
+        throw new BusinessException(
+            "Ngày kết thúc thực tế trước ngày rời đã ghi của người thuê id = "
+                + thanhVien.getNguoiThue().getId()
+        );
+      }
+    }
+
+    for (ThanhVienHopDong thanhVien : thanhViens) {
+      if (thanhVien.getNgayRoi() == null) {
+        thanhVien.setNgayRoi(ngayKetThuc);
+      }
+    }
+
+    entity.setNgayKetThucThucTe(ngayKetThuc);
+    entity.setLyDoKetThuc(request.lyDoKetThuc().trim());
     entity.setTrangThai(TrangThaiHopDong.DA_KET_THUC);
     entity.getPhong().setTrangThai(TrangThaiPhong.TRONG);
 
     return toResponse(entity);
+  }
+
+  private static @NonNull LocalDate getNgayKetThuc(KetThucHopDongRequest request, HopDong entity) {
+    LocalDate ngayKetThuc = request.ngayKetThucThucTe();
+
+    if (ngayKetThuc == null
+        || request.lyDoKetThuc() == null
+        || request.lyDoKetThuc().isBlank()) {
+      throw new BusinessException(
+          "Ngày kết thúc thực tế và lý do không được để trống"
+      );
+    }
+
+    if (request.lyDoKetThuc().length() > 500) {
+      throw new BusinessException(
+          "Lý do kết thúc tối đa 500 ký tự"
+      );
+    }
+
+    if (ngayKetThuc.isBefore(entity.getNgayBatDau())) {
+      throw new BusinessException(
+          "Ngày kết thúc thực tế không được trước ngày bắt đầu"
+      );
+    }
+    return ngayKetThuc;
   }
 
   /**
@@ -370,9 +447,7 @@ public class HopDongService {
    * @param entity entity hợp đồng cần chuyển đổi
    * @return DTO chứa thông tin hợp đồng
    */
-  private HopDongResponse toResponse(
-      HopDong entity) {
-
+  private HopDongResponse toResponse(HopDong entity) {
     return new HopDongResponse(
         entity.getId(),
         entity.getPhong().getId(),
@@ -381,6 +456,9 @@ public class HopDongService {
         entity.getNgayKetThuc(),
         entity.getGiaThueThoaThuan(),
         entity.getTienCoc(),
-        entity.getTrangThai());
+        entity.getTrangThai(),
+        entity.getNgayKetThucThucTe(),
+        entity.getLyDoKetThuc()
+    );
   }
 }

@@ -29,6 +29,19 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Integer> {
             Integer hopDongId,
             LocalDate kyThanhToan);
 
+    boolean existsByHopDong_IdAndKyThanhToanBetween(
+        Integer hopDongId,
+        LocalDate tuNgay,
+        LocalDate denNgay
+    );
+
+    boolean existsByHopDong_IdAndKyThanhToanBetweenAndIdNot(
+        Integer hopDongId,
+        LocalDate tuNgay,
+        LocalDate denNgay,
+        Integer id
+    );
+
     /**
      * Lấy danh sách hóa đơn của một hợp đồng theo kỳ giảm dần.
      *

@@ -45,6 +45,12 @@ public class HopDong {
     @Column(name = "ngay_ket_thuc", nullable = false)
     private LocalDate ngayKetThuc;
 
+    @Column(name = "ngay_ket_thuc_thuc_te")
+    private LocalDate ngayKetThucThucTe;
+
+    @Column(name = "ly_do_ket_thuc", length = 500)
+    private String lyDoKetThuc;
+
     @Column(
         name = "gia_thue_thoa_thuan",
         nullable = false,

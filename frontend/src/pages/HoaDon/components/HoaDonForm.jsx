@@ -8,15 +8,18 @@ function HoaDonForm({
   onCancel,
 }) {
   // Khi sửa không được chuyển hóa đơn sang hợp đồng khác
-  const hopDongOptions = editingId !== null
-      ? hopDongs.filter(
-          (hopDong) =>
-              hopDong.id === Number(formData.hopDongId)
-      )
-      : hopDongs.filter(
-          (hopDong) =>
-              hopDong.trangThai === "DANG_HIEU_LUC"
-      );
+  const hopDongOptions =
+      editingId !== null
+          ? hopDongs.filter(
+              (hopDong) =>
+                  hopDong.id === Number(formData.hopDongId)
+          )
+          : hopDongs.filter(
+              (hopDong) =>
+                  hopDong.trangThai === "DANG_HIEU_LUC" ||
+                  (hopDong.trangThai === "DA_KET_THUC" &&
+                      hopDong.ngayKetThucThucTe)
+          );
 
   return (
       <form
@@ -50,8 +53,11 @@ function HoaDonForm({
 
               {hopDongOptions.map((hopDong) => (
                   <option key={hopDong.id} value={hopDong.id}>
-                    HĐ {hopDong.id} - Phòng {hopDong.soPhong}
-                  </option>
+                HĐ {hopDong.id} - Phòng {hopDong.soPhong}
+              {hopDong.trangThai === "DA_KET_THUC"
+                ? " - Đã kết thúc"
+                : ""}
+                </option>
               ))}
             </select>
           </div>

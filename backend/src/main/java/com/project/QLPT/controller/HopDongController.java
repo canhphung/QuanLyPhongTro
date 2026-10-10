@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import com.project.QLPT.dto.request.HopDongRequest;
+import com.project.QLPT.dto.request.KetThucHopDongRequest;
 import com.project.QLPT.dto.response.HopDongResponse;
 import com.project.QLPT.service.HopDongService;
 
@@ -95,9 +96,10 @@ public class HopDongController {
    */
   @PatchMapping("/{id}/ket-thuc")
   public HopDongResponse ketThuc(
-      @PathVariable Integer id) {
-
-    return hopDongService.ketThuc(id);
+      @PathVariable Integer id,
+      @Valid @RequestBody KetThucHopDongRequest request
+  ) {
+    return hopDongService.ketThuc(id, request);
   }
 
   /**

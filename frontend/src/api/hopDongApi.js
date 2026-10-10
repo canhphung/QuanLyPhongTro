@@ -37,9 +37,10 @@ export const updateHopDong = async ({ id, data }) => {
 };
 
 // Kết thúc hợp đồng
-export const ketThucHopDong = async (id) => {
+export const ketThucHopDong = async ({ id, data }) => {
   const response = await axiosClient.patch(
-      `/api/hop-dong/${id}/ket-thuc`
+      `/api/hop-dong/${id}/ket-thuc`,
+      data
   );
 
   return response.data;
