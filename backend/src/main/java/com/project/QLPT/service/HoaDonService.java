@@ -2,6 +2,8 @@ package com.project.QLPT.service;
 
 import com.project.QLPT.repository.ThanhToanRepository;
 
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -70,44 +72,50 @@ public class HoaDonService {
      *                                   hóa đơn cho kỳ này, hoặc hạn thanh
      *                                   toán sớm hơn ngày lập
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public HoaDonResponse create(HoaDonRequest request) {
+        HopDong hopDong = findHopDongForUpdate(
+            request.hopDongId()
+        );
 
-        HopDong hopDong = findHopDong(request.hopDongId());
+        LocalDate ky = validateKyThanhToan(
+            hopDong,
+            request.kyThanhToan()
+        );
 
-        if (hopDong.getTrangThai() != TrangThaiHopDong.DANG_HIEU_LUC) {
-            throw new BusinessException(
-                    "Chỉ tạo hóa đơn cho hợp đồng đang hiệu lực");
-        }
-
-        if (hoaDonRepository.existsByHopDong_IdAndKyThanhToan(
+        if (hoaDonRepository
+            .existsByHopDong_IdAndKyThanhToanBetween(
                 hopDong.getId(),
-                request.kyThanhToan())) {
+                ky,
+                YearMonth.from(ky).atEndOfMonth()
+            )) {
             throw new BusinessException(
-                    "Hợp đồng đã có hóa đơn cho kỳ thanh toán này");
+                "Hợp đồng đã có hóa đơn cho tháng này"
+            );
         }
 
         if (request.hanThanhToan().isBefore(request.ngayLap())) {
             throw new BusinessException(
-                    "Hạn thanh toán không được sớm hơn ngày lập");
+                "Hạn thanh toán không được sớm hơn ngày lập"
+            );
         }
 
-        BigDecimal tienPhong = request.tienPhong() != null
-                ? request.tienPhong()
-                : hopDong.getGiaThueThoaThuan();
+        BigDecimal tienPhong = layTienPhongKhiTao(
+            hopDong,
+            ky,
+            request.tienPhong()
+        );
 
         HoaDon entity = HoaDon.builder()
-                .hopDong(hopDong)
-                .kyThanhToan(request.kyThanhToan())
-                .ngayLap(request.ngayLap())
-                .hanThanhToan(request.hanThanhToan())
-                .tienPhong(tienPhong)
-                .trangThai(TrangThaiHoaDon.CHUA_THANH_TOAN)
-                .build();
+            .hopDong(hopDong)
+            .kyThanhToan(ky)
+            .ngayLap(request.ngayLap())
+            .hanThanhToan(request.hanThanhToan())
+            .tienPhong(tienPhong)
+            .trangThai(TrangThaiHoaDon.CHUA_THANH_TOAN)
+            .build();
 
-        return toResponse(
-                hoaDonRepository.save(entity),
-                false);
+        return toResponse(hoaDonRepository.save(entity), false);
     }
 
     /**
@@ -191,31 +199,45 @@ public class HoaDonService {
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public HoaDonResponse update(Integer id, HoaDonRequest request) {
+        // Đọc để xác định hợp đồng; hóa đơn không được đổi hợp đồng.
+        Integer hopDongId = findEntity(id).getHopDong().getId();
 
+        if (!hopDongId.equals(request.hopDongId())) {
+            throw new BusinessException(
+                "Không thể chuyển hóa đơn sang hợp đồng khác"
+            );
+        }
+
+        // Thống nhất thứ tự: hợp đồng trước, hóa đơn sau.
+        HopDong hopDong = findHopDongForUpdate(hopDongId);
         HoaDon entity = findHoaDonForUpdate(id);
 
         validateChuaThanhToan(entity);
 
-        if (!entity.getHopDong().getId().equals(request.hopDongId())) {
-            throw new BusinessException(
-                    "Không thể chuyển hóa đơn sang hợp đồng khác");
-        }
+        LocalDate ky = validateKyThanhToan(
+            hopDong,
+            request.kyThanhToan()
+        );
 
         if (hoaDonRepository
-                .existsByHopDong_IdAndKyThanhToan(
-                        request.hopDongId(),
-                        request.kyThanhToan())
-                && !entity.getKyThanhToan().equals(request.kyThanhToan())) {
+            .existsByHopDong_IdAndKyThanhToanBetweenAndIdNot(
+                hopDongId,
+                ky,
+                YearMonth.from(ky).atEndOfMonth(),
+                id
+            )) {
             throw new BusinessException(
-                    "Hợp đồng đã có hóa đơn cho kỳ thanh toán này");
+                "Hợp đồng đã có hóa đơn khác cho tháng này"
+            );
         }
 
         if (request.hanThanhToan().isBefore(request.ngayLap())) {
             throw new BusinessException(
-                    "Hạn thanh toán không được sớm hơn ngày lập");
+                "Hạn thanh toán không được sớm hơn ngày lập"
+            );
         }
 
-        entity.setKyThanhToan(request.kyThanhToan());
+        entity.setKyThanhToan(ky);
         entity.setNgayLap(request.ngayLap());
         entity.setHanThanhToan(request.hanThanhToan());
 
@@ -404,5 +426,103 @@ public class HoaDonService {
         entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
 
         return entity;
+    }
+
+    private HopDong findHopDongForUpdate(Integer id) {
+        HopDong entity = entityManager.find(
+            HopDong.class,
+            id,
+            LockModeType.PESSIMISTIC_WRITE
+        );
+
+        if (entity == null) {
+            throw new ResourceNotFoundException(
+                "Không tìm thấy hợp đồng id = " + id
+            );
+        }
+
+        entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
+
+        return entity;
+    }
+
+    private LocalDate validateKyThanhToan(
+        HopDong hopDong,
+        LocalDate kyThanhToan
+    ) {
+        if (kyThanhToan == null) {
+            throw new BusinessException(
+                "Kỳ thanh toán không được để trống"
+            );
+        }
+
+        YearMonth ky = YearMonth.from(kyThanhToan);
+        YearMonth thangBatDau = YearMonth.from(
+            hopDong.getNgayBatDau()
+        );
+
+        LocalDate ngayCuoi;
+
+        if (hopDong.getTrangThai()
+            == TrangThaiHopDong.DANG_HIEU_LUC) {
+            ngayCuoi = hopDong.getNgayKetThuc();
+
+        } else if (hopDong.getTrangThai()
+            == TrangThaiHopDong.DA_KET_THUC) {
+
+            ngayCuoi = hopDong.getNgayKetThucThucTe();
+
+            if (ngayCuoi == null) {
+                throw new BusinessException(
+                    "Hợp đồng cũ chưa có ngày kết thúc thực tế; "
+                        + "cần đối soát trước khi lập hóa đơn bổ sung"
+                );
+            }
+
+        } else {
+            throw new BusinessException(
+                "Chỉ lập hóa đơn cho hợp đồng đang hiệu lực "
+                    + "hoặc đã kết thúc có ngày trả phòng thực tế"
+            );
+        }
+
+        YearMonth thangCuoi = YearMonth.from(ngayCuoi);
+
+        if (ky.isBefore(thangBatDau) || ky.isAfter(thangCuoi)) {
+            throw new BusinessException(
+                "Kỳ hóa đơn nằm ngoài thời gian thuê của hợp đồng"
+            );
+        }
+
+        return ky.atDay(1);
+    }
+
+    private BigDecimal layTienPhongKhiTao(
+        HopDong hopDong,
+        LocalDate ky,
+        BigDecimal tienPhongNhap
+    ) {
+        boolean thangDauKhongDu =
+            YearMonth.from(ky).equals(
+                YearMonth.from(hopDong.getNgayBatDau())
+            )
+                && hopDong.getNgayBatDau().getDayOfMonth() != 1;
+
+        boolean hopDongDaKetThuc =
+            hopDong.getTrangThai()
+                == TrangThaiHopDong.DA_KET_THUC;
+
+        if (tienPhongNhap == null
+            && (thangDauKhongDu || hopDongDaKetThuc)) {
+            throw new BusinessException(
+                "Hóa đơn tháng đầu không đủ tháng hoặc lập bổ sung "
+                    + "sau kết thúc phải nhập tiền phòng thực tế; "
+                    + "nhập 0 nếu không thu thêm tiền phòng"
+            );
+        }
+
+        return tienPhongNhap != null
+            ? tienPhongNhap
+            : hopDong.getGiaThueThoaThuan();
     }
 }

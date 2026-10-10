@@ -27,6 +27,8 @@ CREATE TABLE hop_dong (
     gia_thue_thoa_thuan DECIMAL(19,0) NOT NULL,
     tien_coc DECIMAL(19,0) NOT NULL,
     trang_thai VARCHAR(30) NOT NULL,
+    ngay_ket_thuc_thuc_te DATE NULL,
+    ly_do_ket_thuc VARCHAR(500) NULL,
 
     CONSTRAINT fk_hop_dong_phong
         FOREIGN KEY (phong_id) REFERENCES phong(id)
@@ -65,6 +67,8 @@ CREATE TABLE hoa_don (
     han_thanh_toan DATE NOT NULL,
     tien_phong DECIMAL(19,0) NOT NULL,
     trang_thai VARCHAR(30) NOT NULL,
+    ngay_ket_thuc_thuc_te DATE NULL,
+    ly_do_ket_thuc VARCHAR(500) NULL,
 
     CONSTRAINT fk_hoa_don_hop_dong
         FOREIGN KEY (hop_dong_id) REFERENCES hop_dong(id),

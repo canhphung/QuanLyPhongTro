@@ -18,7 +18,6 @@ import com.project.QLPT.enums.TrangThaiHopDong;
  * @param trangThai        trạng thái hiện tại của hợp đồng
  */
 public record HopDongResponse(
-
     Integer id,
     Integer phongId,
     String soPhong,
@@ -26,7 +25,8 @@ public record HopDongResponse(
     LocalDate ngayKetThuc,
     BigDecimal giaThueThoaThuan,
     BigDecimal tienCoc,
-    TrangThaiHopDong trangThai
+    TrangThaiHopDong trangThai,
+    LocalDate ngayKetThucThucTe,
+    String lyDoKetThuc
 ) {
-
 }

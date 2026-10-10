@@ -43,4 +43,6 @@ public interface HopDongRepository
    * chưa có hợp đồng nào
    */
   boolean existsByPhong_Id(Integer phongId);
+
+  long countByTrangThai(TrangThaiHopDong trangThai);
 }

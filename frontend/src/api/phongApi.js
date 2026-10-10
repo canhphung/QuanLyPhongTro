@@ -30,3 +30,20 @@ export const updatePhong = async ({ id, data }) => {
 
   return response.data;
 };
+
+export const getPhongPage = async (params) => {
+  const response = await axiosClient.get("/api/phong/phan-trang", {
+    params,
+  });
+
+  return response.data;
+};
+
+export const updateTrangThaiPhong = async ({ id, trangThai }) => {
+  const response = await axiosClient.patch(
+      `/api/phong/${id}/trang-thai`,
+      { trangThai }
+  );
+
+  return response.data;
+};

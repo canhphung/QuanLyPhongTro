@@ -4,6 +4,9 @@ import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import com.project.QLPT.entity.Phong;
 import com.project.QLPT.enums.TrangThaiPhong;
 
@@ -53,4 +56,22 @@ public interface PhongRepository
    */
   List<Phong> findByTrangThai(
       TrangThaiPhong trangThai);
+
+  long countByTrangThai(TrangThaiPhong trangThai);
+
+  Page<Phong> findBySoPhongContainingIgnoreCase(
+      String keyword,
+      Pageable pageable
+  );
+
+  Page<Phong> findByTrangThai(
+      TrangThaiPhong trangThai,
+      Pageable pageable
+  );
+
+  Page<Phong> findByTrangThaiAndSoPhongContainingIgnoreCase(
+      TrangThaiPhong trangThai,
+      String keyword,
+      Pageable pageable
+  );
 }

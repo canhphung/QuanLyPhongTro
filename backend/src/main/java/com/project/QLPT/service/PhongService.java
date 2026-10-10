@@ -1,18 +1,31 @@
 package com.project.QLPT.service;
 
 import java.util.List;
+import java.util.Set;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.project.QLPT.dto.request.PhongRequest;
 import com.project.QLPT.dto.response.PhongResponse;
+import com.project.QLPT.dto.response.PageResponse;
+import com.project.QLPT.dto.request.TrangThaiPhongRequest;
 import com.project.QLPT.entity.Phong;
 import com.project.QLPT.enums.TrangThaiPhong;
+import com.project.QLPT.enums.TrangThaiHopDong;
 import com.project.QLPT.exception.BusinessException;
 import com.project.QLPT.exception.ResourceNotFoundException;
 import com.project.QLPT.repository.HopDongRepository;
 import com.project.QLPT.repository.PhongRepository;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,6 +45,8 @@ public class PhongService {
 
   private final PhongRepository phongRepository;
   private final HopDongRepository hopDongRepository;
+  @PersistenceContext
+  private EntityManager entityManager;
 
   /**
    * Tạo mới một phòng.
@@ -130,12 +145,12 @@ public class PhongService {
    * @throws ResourceNotFoundException nếu không tìm thấy phòng
    * @throws BusinessException         nếu số phòng mới đã được sử dụng bởi một phòng khác
    */
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public PhongResponse update(
       Integer id,
       PhongRequest request) {
 
-    Phong entity = findEntity(id);
+    Phong entity = findPhongForUpdate(id);
 
     String soPhong = request.soPhong().trim();
 
@@ -165,10 +180,10 @@ public class PhongService {
    * @throws ResourceNotFoundException nếu không tìm thấy phòng
    * @throws BusinessException         nếu phòng đã phát sinh ít nhất một hợp đồng
    */
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public void delete(Integer id) {
 
-    Phong entity = findEntity(id);
+    Phong entity = findPhongForUpdate(id);
 
     if (hopDongRepository.existsByPhong_Id(id)) {
       throw new BusinessException(
@@ -208,5 +223,144 @@ public class PhongService {
         entity.getDienTich(),
         entity.getGiaThue(),
         entity.getTrangThai());
+  }
+
+  private Phong findPhongForUpdate(Integer id) {
+    Phong entity = entityManager.find(
+        Phong.class,
+        id,
+        LockModeType.PESSIMISTIC_WRITE
+    );
+
+    if (entity == null) {
+      throw new ResourceNotFoundException(
+          "Không tìm thấy phòng id = " + id
+      );
+    }
+
+    entityManager.refresh(
+        entity,
+        LockModeType.PESSIMISTIC_WRITE
+    );
+
+    return entity;
+  }
+
+  @Transactional(isolation = Isolation.READ_COMMITTED)
+  public PhongResponse updateTrangThai(
+      Integer id,
+      TrangThaiPhongRequest request
+  ) {
+    Phong entity = findPhongForUpdate(id);
+    TrangThaiPhong trangThaiMoi = request.trangThai();
+
+    if (trangThaiMoi == null) {
+      throw new BusinessException(
+          "Trạng thái phòng không được để trống"
+      );
+    }
+
+    if (trangThaiMoi == TrangThaiPhong.DANG_THUE) {
+      throw new BusinessException(
+          "Trạng thái đang thuê được quản lý qua hợp đồng"
+      );
+    }
+
+    boolean coHopDongHieuLuc =
+        hopDongRepository.existsByPhong_IdAndTrangThai(
+            id,
+            TrangThaiHopDong.DANG_HIEU_LUC
+        );
+
+    if (entity.getTrangThai() == TrangThaiPhong.DANG_THUE
+        || coHopDongHieuLuc) {
+      throw new BusinessException(
+          "Phòng đang thuê; cần xử lý hợp đồng trước "
+              + "khi chuyển trạng thái phòng"
+      );
+    }
+
+    entity.setTrangThai(trangThaiMoi);
+
+    return toResponse(entity);
+  }
+
+  @Transactional(readOnly = true)
+  public PageResponse<PhongResponse> getPage(
+      int page,
+      int size,
+      String keyword,
+      TrangThaiPhong trangThai,
+      String sortBy,
+      String direction
+  ) {
+    if (page < 0 || size < 1 || size > 100) {
+      throw new BusinessException(
+          "page phải từ 0; size phải từ 1 đến 100"
+      );
+    }
+
+    Set<String> allowedSort = Set.of(
+        "id", "soPhong", "dienTich", "giaThue", "trangThai"
+    );
+
+    if (!allowedSort.contains(sortBy)) {
+      throw new BusinessException(
+          "Trường sắp xếp không hợp lệ"
+      );
+    }
+
+    if (!"asc".equalsIgnoreCase(direction)
+        && !"desc".equalsIgnoreCase(direction)) {
+      throw new BusinessException(
+          "Chiều sắp xếp phải là asc hoặc desc"
+      );
+    }
+
+    Sort.Direction sortDirection =
+        "desc".equalsIgnoreCase(direction)
+            ? Sort.Direction.DESC
+            : Sort.Direction.ASC;
+
+    Sort sort = Sort.by(sortDirection, sortBy);
+
+    // Thêm khóa phụ để các dòng có cùng giá trị được sắp ổn định.
+    if (!"id".equals(sortBy)) {
+      sort = sort.and(Sort.by(Sort.Direction.ASC, "id"));
+    }
+
+    Pageable pageable = PageRequest.of(page, size, sort);
+    String tuKhoa = keyword == null ? "" : keyword.trim();
+
+    Page<Phong> result;
+
+    if (trangThai != null && !tuKhoa.isEmpty()) {
+      result = phongRepository
+          .findByTrangThaiAndSoPhongContainingIgnoreCase(
+              trangThai, tuKhoa, pageable
+          );
+    } else if (trangThai != null) {
+      result = phongRepository.findByTrangThai(
+          trangThai, pageable
+      );
+    } else if (!tuKhoa.isEmpty()) {
+      result = phongRepository.findBySoPhongContainingIgnoreCase(
+          tuKhoa, pageable
+      );
+    } else {
+      result = phongRepository.findAll(pageable);
+    }
+
+    return new PageResponse<>(
+        result.getContent().stream()
+            .map(this::toResponse)
+            .toList(),
+        result.getNumber(),
+        result.getSize(),
+        result.getTotalElements(),
+        result.getTotalPages(),
+        result.isFirst(),
+        result.isLast()
+    );
   }
 }

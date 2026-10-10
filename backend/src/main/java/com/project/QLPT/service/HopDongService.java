@@ -1,13 +1,24 @@
 package com.project.QLPT.service;
 
 import java.util.List;
+import java.time.LocalDate;
+import java.time.ZoneId;
 
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
+
 import com.project.QLPT.dto.request.HopDongRequest;
+import com.project.QLPT.dto.request.KetThucHopDongRequest;
 import com.project.QLPT.dto.response.HopDongResponse;
+import org.springframework.transaction.annotation.Isolation;
 import com.project.QLPT.entity.HopDong;
+import com.project.QLPT.entity.ThanhVienHopDong;
 import com.project.QLPT.entity.Phong;
 import com.project.QLPT.enums.TrangThaiHopDong;
 import com.project.QLPT.enums.TrangThaiPhong;
@@ -15,6 +26,7 @@ import com.project.QLPT.exception.BusinessException;
 import com.project.QLPT.exception.ResourceNotFoundException;
 import com.project.QLPT.repository.HopDongRepository;
 import com.project.QLPT.repository.PhongRepository;
+import com.project.QLPT.repository.ThanhVienHopDongRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,6 +46,10 @@ public class HopDongService {
 
   private final HopDongRepository hopDongRepository;
   private final PhongRepository phongRepository;
+  private final ThanhVienHopDongRepository thanhVienHopDongRepository;
+
+  @PersistenceContext
+  private EntityManager entityManager;
 
   /**
    * Tạo mới hợp đồng thuê phòng.
@@ -50,12 +66,12 @@ public class HopDongService {
    * @throws BusinessException         nếu ngày hợp đồng không hợp lệ, phòng không trống hoặc phòng
    *                                   đã có hợp đồng đang hiệu lực
    */
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public HopDongResponse create(HopDongRequest request) {
 
     validateDate(request);
 
-    Phong phong = findPhong(request.phongId());
+    Phong phong = findPhongForUpdate(request.phongId());
 
     if (phong.getTrangThai()
         != TrangThaiPhong.TRONG) {
@@ -129,31 +145,33 @@ public class HopDongService {
    * @throws BusinessException         nếu hợp đồng không đang hiệu lực, yêu cầu thay đổi phòng hoặc
    *                                   ngày hợp đồng không hợp lệ
    */
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public HopDongResponse update(
       Integer id,
-      HopDongRequest request) {
+      HopDongRequest request
+  ) {
+    // Thành viên cũng khóa cùng hợp đồng khi ghi.
+    // Nhờ vậy, việc sửa thời hạn và sửa thành viên được tuần tự hóa.
+    HopDong entity = findHopDongForUpdate(id);
 
-    HopDong entity = findEntity(id);
-
-    if (entity.getTrangThai()
-        != TrangThaiHopDong.DANG_HIEU_LUC) {
+    if (entity.getTrangThai() != TrangThaiHopDong.DANG_HIEU_LUC) {
       throw new BusinessException(
-          "Chỉ được chỉnh sửa hợp đồng đang hiệu lực");
+          "Chỉ được chỉnh sửa hợp đồng đang hiệu lực"
+      );
     }
 
-    if (!entity.getPhong().getId()
-        .equals(request.phongId())) {
+    if (!entity.getPhong().getId().equals(request.phongId())) {
       throw new BusinessException(
-          "Không thể chuyển hợp đồng sang phòng khác");
+          "Không thể chuyển hợp đồng sang phòng khác"
+      );
     }
 
     validateDate(request);
+    validateThanhVienTrongThoiHan(id, request);
 
     entity.setNgayBatDau(request.ngayBatDau());
     entity.setNgayKetThuc(request.ngayKetThuc());
-    entity.setGiaThueThoaThuan(
-        request.giaThueThoaThuan());
+    entity.setGiaThueThoaThuan(request.giaThueThoaThuan());
     entity.setTienCoc(request.tienCoc());
 
     return toResponse(entity);
@@ -171,24 +189,92 @@ public class HopDongService {
    * @throws ResourceNotFoundException nếu không tìm thấy hợp đồng
    * @throws BusinessException         nếu hợp đồng không đang hiệu lực
    */
-  @Transactional
-  public HopDongResponse ketThuc(Integer id) {
+  @Transactional(isolation = Isolation.READ_COMMITTED)
+  public HopDongResponse ketThuc(
+      Integer id,
+      KetThucHopDongRequest request
+  ) {
+    // Helper ở phần 1: khóa phòng trước, hợp đồng sau;
+    // refresh hợp đồng sau khi lấy khóa.
+    HopDong entity = findHopDongForClose(id);
 
-    HopDong entity = findEntity(id);
-
-    if (entity.getTrangThai()
-        != TrangThaiHopDong.DANG_HIEU_LUC) {
+    if (entity.getTrangThai() != TrangThaiHopDong.DANG_HIEU_LUC) {
       throw new BusinessException(
-          "Hợp đồng không đang hiệu lực");
+          "Chỉ kết thúc hợp đồng đang hiệu lực"
+      );
     }
 
-    entity.setTrangThai(
-        TrangThaiHopDong.DA_KET_THUC);
+    LocalDate ngayKetThuc = getNgayKetThuc(request, entity);
 
-    entity.getPhong().setTrangThai(
-        TrangThaiPhong.TRONG);
+    LocalDate homNay = LocalDate.now(
+        ZoneId.of("Asia/Ho_Chi_Minh")
+    );
+
+    if (ngayKetThuc.isAfter(homNay)) {
+      throw new BusinessException(
+          "Chỉ ghi nhận kết thúc khi đã thực tế trả phòng"
+      );
+    }
+
+    List<ThanhVienHopDong> thanhViens =
+        thanhVienHopDongRepository
+            .findByHopDong_IdOrderByNgayVaoAsc(id);
+
+    // Kiểm tra toàn bộ trước khi thay đổi dữ liệu.
+    for (ThanhVienHopDong thanhVien : thanhViens) {
+      if (thanhVien.getNgayVao().isAfter(ngayKetThuc)) {
+        throw new BusinessException(
+            "Ngày kết thúc thực tế trước ngày vào của người thuê id = "
+                + thanhVien.getNguoiThue().getId()
+        );
+      }
+
+      if (thanhVien.getNgayRoi() != null
+          && thanhVien.getNgayRoi().isAfter(ngayKetThuc)) {
+        throw new BusinessException(
+            "Ngày kết thúc thực tế trước ngày rời đã ghi của người thuê id = "
+                + thanhVien.getNguoiThue().getId()
+        );
+      }
+    }
+
+    for (ThanhVienHopDong thanhVien : thanhViens) {
+      if (thanhVien.getNgayRoi() == null) {
+        thanhVien.setNgayRoi(ngayKetThuc);
+      }
+    }
+
+    entity.setNgayKetThucThucTe(ngayKetThuc);
+    entity.setLyDoKetThuc(request.lyDoKetThuc().trim());
+    entity.setTrangThai(TrangThaiHopDong.DA_KET_THUC);
+    entity.getPhong().setTrangThai(TrangThaiPhong.TRONG);
 
     return toResponse(entity);
+  }
+
+  private static @NonNull LocalDate getNgayKetThuc(KetThucHopDongRequest request, HopDong entity) {
+    LocalDate ngayKetThuc = request.ngayKetThucThucTe();
+
+    if (ngayKetThuc == null
+        || request.lyDoKetThuc() == null
+        || request.lyDoKetThuc().isBlank()) {
+      throw new BusinessException(
+          "Ngày kết thúc thực tế và lý do không được để trống"
+      );
+    }
+
+    if (request.lyDoKetThuc().length() > 500) {
+      throw new BusinessException(
+          "Lý do kết thúc tối đa 500 ký tự"
+      );
+    }
+
+    if (ngayKetThuc.isBefore(entity.getNgayBatDau())) {
+      throw new BusinessException(
+          "Ngày kết thúc thực tế không được trước ngày bắt đầu"
+      );
+    }
+    return ngayKetThuc;
   }
 
   /**
@@ -203,22 +289,18 @@ public class HopDongService {
    * @throws ResourceNotFoundException nếu không tìm thấy hợp đồng
    * @throws BusinessException         nếu hợp đồng không đang hiệu lực
    */
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public HopDongResponse huy(Integer id) {
+    HopDong entity = findHopDongForClose(id);
 
-    HopDong entity = findEntity(id);
-
-    if (entity.getTrangThai()
-        != TrangThaiHopDong.DANG_HIEU_LUC) {
+    if (entity.getTrangThai() != TrangThaiHopDong.DANG_HIEU_LUC) {
       throw new BusinessException(
-          "Chỉ có thể hủy hợp đồng đang hiệu lực");
+          "Chỉ có thể hủy hợp đồng đang hiệu lực"
+      );
     }
 
-    entity.setTrangThai(
-        TrangThaiHopDong.DA_HUY);
-
-    entity.getPhong().setTrangThai(
-        TrangThaiPhong.TRONG);
+    entity.setTrangThai(TrangThaiHopDong.DA_HUY);
+    entity.getPhong().setTrangThai(TrangThaiPhong.TRONG);
 
     return toResponse(entity);
   }
@@ -272,15 +354,100 @@ public class HopDongService {
                     + id));
   }
 
+  private Phong findPhongForUpdate(Integer id) {
+    Phong phong = entityManager.find(
+        Phong.class,
+        id,
+        LockModeType.PESSIMISTIC_WRITE
+    );
+
+    if (phong == null) {
+      throw new ResourceNotFoundException(
+          "Không tìm thấy phòng id = " + id
+      );
+    }
+
+    // Đọc lại trạng thái mới nhất nếu entity đã được nạp trước đó.
+    entityManager.refresh(
+        phong,
+        LockModeType.PESSIMISTIC_WRITE
+    );
+
+    return phong;
+  }
+
+  private HopDong findHopDongForUpdate(Integer id) {
+    HopDong entity = entityManager.find(
+        HopDong.class,
+        id,
+        LockModeType.PESSIMISTIC_WRITE
+    );
+
+    if (entity == null) {
+      throw new ResourceNotFoundException(
+          "Không tìm thấy hợp đồng id = " + id
+      );
+    }
+
+    entityManager.refresh(
+        entity,
+        LockModeType.PESSIMISTIC_WRITE
+    );
+
+    return entity;
+  }
+
+  private HopDong findHopDongForClose(Integer id) {
+    // Chỉ đọc để xác định phòng. Mã hiện tại không cho đổi phòng.
+    HopDong entity = findEntity(id);
+
+    // Thống nhất thứ tự: khóa phòng trước, hợp đồng sau.
+    findPhongForUpdate(entity.getPhong().getId());
+
+    // Đọc lại trạng thái hợp đồng sau khi lấy khóa.
+    return findHopDongForUpdate(id);
+  }
+
+  private void validateThanhVienTrongThoiHan(
+      Integer hopDongId,
+      HopDongRequest request
+  ) {
+    List<ThanhVienHopDong> thanhViens =
+        thanhVienHopDongRepository
+            .findByHopDong_IdOrderByNgayVaoAsc(hopDongId);
+
+    for (ThanhVienHopDong thanhVien : thanhViens) {
+      boolean ngayVaoNgoaiThoiHan =
+          thanhVien.getNgayVao().isBefore(request.ngayBatDau())
+              || thanhVien.getNgayVao()
+              .isAfter(request.ngayKetThuc());
+
+      boolean ngayRoiNgoaiThoiHan =
+          thanhVien.getNgayRoi() != null
+              && (
+              thanhVien.getNgayRoi()
+                  .isBefore(request.ngayBatDau())
+                  || thanhVien.getNgayRoi()
+                  .isAfter(request.ngayKetThuc())
+          );
+
+      if (ngayVaoNgoaiThoiHan || ngayRoiNgoaiThoiHan) {
+        throw new BusinessException(
+            "Không thể sửa thời hạn: ngày vào/rời của người thuê id = "
+                + thanhVien.getNguoiThue().getId()
+                + " nằm ngoài thời hạn hợp đồng mới"
+        );
+      }
+    }
+  }
+
   /**
    * Chuyển đổi entity {@link HopDong} sang DTO {@link HopDongResponse}.
    *
    * @param entity entity hợp đồng cần chuyển đổi
    * @return DTO chứa thông tin hợp đồng
    */
-  private HopDongResponse toResponse(
-      HopDong entity) {
-
+  private HopDongResponse toResponse(HopDong entity) {
     return new HopDongResponse(
         entity.getId(),
         entity.getPhong().getId(),
@@ -289,6 +456,9 @@ public class HopDongService {
         entity.getNgayKetThuc(),
         entity.getGiaThueThoaThuan(),
         entity.getTienCoc(),
-        entity.getTrangThai());
+        entity.getTrangThai(),
+        entity.getNgayKetThucThucTe(),
+        entity.getLyDoKetThuc()
+    );
   }
 }

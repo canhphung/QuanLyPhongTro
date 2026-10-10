@@ -94,7 +94,7 @@ function HopDongPage() {
 
   const refreshHopDongList = () => {
     queryClient.invalidateQueries({
-      queryKey: ["hop-dong"],
+      queryKey: ["dashboard"],
     });
 
     // Trạng thái phòng thay đổi khi lập / kết thúc / hủy hợp đồng
@@ -300,13 +300,44 @@ function HopDongPage() {
   // ==========================================
 
   const handleKetThuc = (hopDong) => {
-    const confirmKetThuc = window.confirm(
-        `Bạn có chắc chắn muốn kết thúc hợp đồng phòng "${hopDong.soPhong}"?`
+    const ngayKetThucThucTe = window.prompt(
+        "Nhập ngày trả phòng thực tế theo định dạng YYYY-MM-DD:"
     );
 
-    if (confirmKetThuc) {
-      ketThucMutation.mutate(hopDong.id);
+    if (ngayKetThucThucTe === null) return;
+
+    const ngay = ngayKetThucThucTe.trim();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ngay)) {
+      alert("Ngày phải có định dạng YYYY-MM-DD");
+      return;
     }
+
+    const lyDoKetThuc = window.prompt("Nhập lý do kết thúc:");
+
+    if (lyDoKetThuc === null) return;
+
+    const lyDo = lyDoKetThuc.trim();
+
+    if (!lyDo || lyDo.length > 500) {
+      alert("Lý do phải có từ 1 đến 500 ký tự");
+      return;
+    }
+
+    const confirmed = window.confirm(
+        `Kết thúc hợp đồng phòng "${hopDong.soPhong}" ngày ${ngay}?\n` +
+        "Các hóa đơn còn nợ vẫn được giữ để tiếp tục thu."
+    );
+
+    if (!confirmed) return;
+
+    ketThucMutation.mutate({
+      id: hopDong.id,
+      data: {
+        ngayKetThucThucTe: ngay,
+        lyDoKetThuc: lyDo,
+      },
+    });
   };
 
   // ==========================================
