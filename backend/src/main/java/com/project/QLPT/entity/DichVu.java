@@ -2,6 +2,9 @@ package com.project.QLPT.entity;
 
 import java.math.BigDecimal;
 
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -46,4 +49,9 @@ public class DichVu {
 
     @Column(name = "dang_hoat_dong", nullable = false)
     private Boolean dangHoatDong;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "chu_tro_id", nullable = false)
+    private ChuTro chuTro;
 }
+
