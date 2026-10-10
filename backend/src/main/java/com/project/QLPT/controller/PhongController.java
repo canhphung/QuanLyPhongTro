@@ -5,8 +5,10 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import com.project.QLPT.dto.request.TrangThaiPhongRequest;
 import com.project.QLPT.dto.request.PhongRequest;
 import com.project.QLPT.dto.response.PhongResponse;
+import com.project.QLPT.dto.response.PageResponse;
 import com.project.QLPT.enums.TrangThaiPhong;
 import com.project.QLPT.service.PhongService;
 
@@ -120,5 +122,27 @@ public class PhongController {
       @PathVariable Integer id) {
 
     phongService.delete(id);
+  }
+
+  @PatchMapping("/{id}/trang-thai")
+  public PhongResponse updateTrangThai(
+      @PathVariable Integer id,
+      @Valid @RequestBody TrangThaiPhongRequest request
+  ) {
+    return phongService.updateTrangThai(id, request);
+  }
+
+  @GetMapping("/phan-trang")
+  public PageResponse<PhongResponse> getPage(
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "10") int size,
+      @RequestParam(required = false) String keyword,
+      @RequestParam(required = false) TrangThaiPhong trangThai,
+      @RequestParam(defaultValue = "id") String sortBy,
+      @RequestParam(defaultValue = "asc") String direction
+  ) {
+    return phongService.getPage(
+        page, size, keyword, trangThai, sortBy, direction
+    );
   }
 }

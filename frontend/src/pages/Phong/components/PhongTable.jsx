@@ -28,7 +28,14 @@ function getStatusText(trangThai) {
   }
 }
 
-function PhongTable({ phongs = [], onEdit, onDelete, isDeleting }) {
+function PhongTable({
+  phongs = [],
+  onEdit,
+  onDelete,
+  onUpdateTrangThai,
+  isDeleting,
+  isBusy = false,
+}) {
   return (
       <div className="overflow-x-auto rounded-lg bg-white shadow">
         <table className="w-full">
@@ -65,16 +72,32 @@ function PhongTable({ phongs = [], onEdit, onDelete, isDeleting }) {
                   <button
                       onClick={() => onEdit(phong)}
                       className="mr-3 text-blue-600 hover:underline"
+                      disabled={isBusy}
                   >
                     Sửa
                   </button>
                   <button
                       onClick={() => onDelete(phong)}
-                      disabled={isDeleting}
+                      disabled={isDeleting || isBusy}
                       className="text-red-600 hover:underline disabled:opacity-50"
                   >
                     Xóa
                   </button>
+                  {phong.trangThai !== "DANG_THUE" && (
+                      <select
+                          aria-label={`Đổi trạng thái phòng ${phong.soPhong}`}
+                          value={phong.trangThai}
+                          disabled={isBusy}
+                          onChange={(event) =>
+                              onUpdateTrangThai(phong, event.target.value)
+                          }
+                          className="ml-3 rounded border bg-white px-2 py-1 disabled:opacity-50"
+                      >
+                        <option value="TRONG">Trống</option>
+                        <option value="BAO_TRI">Bảo trì</option>
+                        <option value="NGUNG_HOAT_DONG">Ngừng hoạt động</option>
+                      </select>
+                  )}
                 </td>
               </tr>
           ))}

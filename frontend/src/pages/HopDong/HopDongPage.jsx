@@ -94,7 +94,7 @@ function HopDongPage() {
 
   const refreshHopDongList = () => {
     queryClient.invalidateQueries({
-      queryKey: ["hop-dong"],
+      queryKey: ["dashboard"],
     });
 
     // Trạng thái phòng thay đổi khi lập / kết thúc / hủy hợp đồng
