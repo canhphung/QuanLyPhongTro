@@ -1,7 +1,3 @@
-import axiosClient from "./axiosClient";
-
-export const getDashboard = async () => {
-  const response = await axiosClient.get("/api/dashboard");
-
-  return response.data;
-};
+import sessionClient from "./sessionClient";
+export const getDashboard = async (thang, signal) =>
+  (await sessionClient.get("/api/dashboard", { params: thang ? { thang } : {}, signal })).data;

@@ -17,6 +17,16 @@ import com.project.QLPT.enums.TrangThaiHoaDon;
  * </p>
  */
 public interface HoaDonRepository extends JpaRepository<HoaDon, Integer>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<HoaDon> {
+    interface RentRow {
+        Integer getInvoiceId();
+        java.math.BigDecimal getRent();
+    }
+
+    @org.springframework.data.jpa.repository.Query("""
+        select h.id as invoiceId, h.tienPhong as rent from HoaDon h
+        where h.hopDong.phong.nhaTro.chuTro.id = :ownerId
+        """)
+    List<RentRow> rentsForOwner(@org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
 
     /**
      * Kiểm tra xem hợp đồng đã có hóa đơn cho kỳ thanh toán này chưa.

@@ -11,6 +11,15 @@ import com.project.QLPT.enums.TrangThaiHoaDon;
 public final class OwnerSpecifications {
     private OwnerSpecifications() {}
 
+    public static Specification<ThanhToan> thanhToan(Integer ownerId, Integer hoaDonId) {
+        return (root, query, cb) -> {
+            var predicate = cb.equal(
+                root.get("hoaDon").get("hopDong").get("phong").get("nhaTro").get("chuTro").get("id"), ownerId);
+            return hoaDonId == null ? predicate
+                : cb.and(predicate, cb.equal(root.get("hoaDon").get("id"), hoaDonId));
+        };
+    }
+
     public static Specification<HoaDon> hoaDon(Integer ownerId, Integer hopDongId,
             String keyword, TrangThaiHoaDon trangThai) {
         return (root, query, cb) -> {

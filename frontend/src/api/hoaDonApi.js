@@ -1,8 +1,9 @@
 import sessionClient from "./sessionClient";
 
 // Lấy tất cả hóa đơn (có thể lọc theo trạng thái)
-export const getAllHoaDon = async (trangThai) => {
+export const getAllHoaDon = async (trangThai, signal) => {
   const response = await sessionClient.get("/api/hoa-don", {
+    signal,
     params: trangThai
         ? {
           trangThai: trangThai,

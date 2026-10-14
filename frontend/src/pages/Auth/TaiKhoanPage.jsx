@@ -173,6 +173,8 @@ function TaiKhoanPage() {
             <Link to="/dich-vu">Dịch vụ</Link>
             <Link to="/hop-dong">Hợp đồng</Link>
             <Link to="/hoa-don">Hóa đơn</Link>
+            <Link to="/thanh-toan">Thanh toán</Link>
+            <Link to="/dashboard">Dashboard</Link>
           </nav>}
           {!isOwner ? <p>Tài khoản người thuê đã đăng nhập. Cổng yêu cầu và hóa đơn sẽ nối ở bước tiếp theo.</p> : <>
             <form className="mb-5 grid gap-3 rounded bg-white p-5 shadow"

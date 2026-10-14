@@ -19,7 +19,8 @@ export default function ChiTietPanel({ invoice, accountId, disabled, onBusyChang
   const selected = (services.data ?? []).find((service) => service.id === Number(form?.dichVuId));
   const meter = existing ? existing.tinhTheoChiSo : selected?.tinhTheoChiSo;
   const reset = () => { setForm(null); setEditingId(null); };
-  const refresh = () => client.invalidateQueries({ queryKey: ["hoa-don", accountId] });
+  const refresh = () => Promise.all(["hoa-don", "dashboard"].map(
+    (key) => client.invalidateQueries({ queryKey: [key, accountId] })));
   const onError = (error) => setNotice(getErrorMessage(error, "Không thể cập nhật dòng dịch vụ"));
   const save = useMutation({ mutationFn: saveChiTiet,
     onSuccess: async () => { reset(); setNotice("Đã lưu dòng dịch vụ."); await refresh(); }, onError });

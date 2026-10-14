@@ -8,6 +8,8 @@ function Sidebar() {
     { name: "Dịch vụ", path: "/dich-vu" },
     { name: "Hợp đồng", path: "/hop-dong" },
     { name: "Hóa đơn", path: "/hoa-don" },
+    { name: "Thanh toán", path: "/thanh-toan" },
+    { name: "Dashboard", path: "/dashboard" },
   ];
 
   return (

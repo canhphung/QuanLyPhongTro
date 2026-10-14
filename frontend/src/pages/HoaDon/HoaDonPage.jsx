@@ -41,7 +41,8 @@ export default function HoaDonPage() {
     }
   }, [bills.data, bills.isFetching, bills.isError, page]);
   const reset = () => { setForm(null); setEditingId(null); };
-  const refresh = () => client.invalidateQueries({ queryKey: ["hoa-don", account?.id] });
+  const refresh = () => Promise.all(["hoa-don", "dashboard"].map(
+    (key) => client.invalidateQueries({ queryKey: [key, account?.id] })));
   const onError = (error) => setNotice(getErrorMessage(error, "Không thể thực hiện yêu cầu"));
   const save = useMutation({
     mutationFn: ({ id, data }) => id == null ? createHoaDon(data) : updateHoaDon({ id, data }),

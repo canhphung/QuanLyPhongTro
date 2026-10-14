@@ -8,6 +8,9 @@ import HoaDonPage from "../pages/HoaDon/HoaDonPage";
 import HopDongPage from "../pages/HopDong/HopDongPage";
 import DichVuPage from "../pages/DichVu/DichVuPage";
 
+import ThanhToanPage from "../pages/ThanhToan/ThanhToanPage";
+import DashboardPage from "../pages/Dashboard/DashboardPage";
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -20,6 +23,8 @@ export default function AppRoutes() {
           <Route path="/dich-vu" element={<DichVuPage />} />
           <Route path="/hop-dong" element={<HopDongPage />} />
           <Route path="/hoa-don" element={<HoaDonPage />} />
+          <Route path="/thanh-toan" element={<ThanhToanPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/tai-khoan" replace />} />

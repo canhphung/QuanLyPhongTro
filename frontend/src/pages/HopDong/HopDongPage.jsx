@@ -45,6 +45,7 @@ export default function HopDongPage() {
   const refresh = () => Promise.all([
     client.invalidateQueries({ queryKey: ["hop-dong", account?.id] }),
     client.invalidateQueries({ queryKey: ["phong", account?.id] }),
+    client.invalidateQueries({ queryKey: ["dashboard", account?.id] }),
     client.invalidateQueries({ queryKey: ["thanh-vien", account?.id] }),
   ]);
   const onError = (error) => setNotice(getErrorMessage(error, "Không thể thực hiện yêu cầu"));

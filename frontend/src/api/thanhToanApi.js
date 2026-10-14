@@ -1,39 +1,8 @@
-import axiosClient from "./axiosClient";
-
-// Lấy toàn bộ thanh toán.
-export const getAllThanhToan = async () => {
-  const response = await axiosClient.get("/api/thanh-toan");
-  return response.data;
-};
-
-// Lấy thanh toán theo ID.
-export const getThanhToanById = async (id) => {
-  const response = await axiosClient.get(`/api/thanh-toan/${id}`);
-  return response.data;
-};
-
-// Lấy lịch sử thanh toán theo hóa đơn.
-export const getThanhToanByHoaDon = async (hoaDonId) => {
-  const response = await axiosClient.get(
-    `/api/thanh-toan/hoa-don/${hoaDonId}`
-  );
-
-  return response.data;
-};
-
-// Thêm thanh toán.
-export const createThanhToan = async (data) => {
-  const response = await axiosClient.post("/api/thanh-toan", data);
-  return response.data;
-};
-
-// Cập nhật thanh toán.
-export const updateThanhToan = async ({ id, data }) => {
-  const response = await axiosClient.put(`/api/thanh-toan/${id}`, data);
-  return response.data;
-};
-
-// Xóa thanh toán.
-export const deleteThanhToan = async (id) => {
-  await axiosClient.delete(`/api/thanh-toan/${id}`);
-};
+import sessionClient from "./sessionClient";
+export const getAllThanhToan = async (signal) => (await sessionClient.get("/api/thanh-toan", { signal })).data;
+export const getThanhToanById = async (id, signal) => (await sessionClient.get(`/api/thanh-toan/${id}`, { signal })).data;
+export const getThanhToanByHoaDon = async (id, signal) => (await sessionClient.get(`/api/thanh-toan/hoa-don/${id}`, { signal })).data;
+export const getThanhToanPage = async (params, signal) => (await sessionClient.get("/api/thanh-toan/phan-trang", { params, signal })).data;
+export const createThanhToan = async (data) => (await sessionClient.post("/api/thanh-toan", data)).data;
+export const updateThanhToan = async ({ id, data }) => (await sessionClient.put(`/api/thanh-toan/${id}`, data)).data;
+export const deleteThanhToan = async (id) => { await sessionClient.delete(`/api/thanh-toan/${id}`); };

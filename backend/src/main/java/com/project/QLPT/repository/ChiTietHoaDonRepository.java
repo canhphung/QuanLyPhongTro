@@ -16,6 +16,19 @@ import com.project.QLPT.entity.ChiTietHoaDon;
  */
 public interface ChiTietHoaDonRepository
         extends JpaRepository<ChiTietHoaDon, Integer> {
+    interface AmountRow {
+        Integer getInvoiceId();
+        Integer getServiceOwnerId();
+        java.math.BigDecimal getQuantity();
+        java.math.BigDecimal getPrice();
+    }
+
+    @org.springframework.data.jpa.repository.Query("""
+        select c.hoaDon.id as invoiceId, c.dichVu.chuTro.id as serviceOwnerId,
+            c.soLuong as quantity, c.donGia as price
+        from ChiTietHoaDon c where c.hoaDon.hopDong.phong.nhaTro.chuTro.id = :ownerId
+        """)
+    List<AmountRow> amountsForOwner(@org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
 
     /**
      * Lấy danh sách dòng chi tiết của một hóa đơn.
