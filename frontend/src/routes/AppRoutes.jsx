@@ -5,7 +5,7 @@ import AdminLayout from "../components/layout/admin/AdminLayout";
 import { Navigate, Routes, Route } from "react-router-dom";
 import HomeRedirect from "./HomeRedirect";
 import TaiKhoanPage from "../pages/auth/TaiKhoanPage";
-import MainLayout from "../components/layout/owner/MainLayout.jsx";
+import OwnerLayout from "../components/layout/owner/OwnerLayout.jsx";
 import RequireOwner from "./RequireOwner";
 import PhongPage from "../pages/owner/Phong/PhongPage";
 import NguoiThuePage from "../pages/owner/NguoiThue/NguoiThuePage";
@@ -22,7 +22,7 @@ export default function AppRoutes() {
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/tai-khoan" element={<TaiKhoanPage />} />
       <Route element={<RequireOwner />}>
-        <Route element={<MainLayout />}>
+        <Route element={<OwnerLayout />}>
           <Route path="/tin-dang" element={<TinDangPage />} />
           <Route path="/phong" element={<PhongPage />} />
           <Route path="/nguoi-thue" element={<NguoiThuePage />} />
