@@ -1,16 +1,16 @@
-import axiosClient from "./axiosClient";
+import sessionClient from "./sessionClient";
 
 // Lấy tất cả hợp đồng
 export const getAllHopDong = async () => {
-  const response = await axiosClient.get("/api/hop-dong");
+  const response = await sessionClient.get("/api/hop-dong");
 
   return response.data;
 };
 
 // Lấy hợp đồng theo ID
-export const getHopDongById = async (id) => {
-  const response = await axiosClient.get(
-      `/api/hop-dong/${id}`
+export const getHopDongById = async (id, signal) => {
+  const response = await sessionClient.get(
+      `/api/hop-dong/${id}`, { signal }
   );
 
   return response.data;
@@ -18,7 +18,7 @@ export const getHopDongById = async (id) => {
 
 // Thêm hợp đồng
 export const createHopDong = async (data) => {
-  const response = await axiosClient.post(
+  const response = await sessionClient.post(
       "/api/hop-dong",
       data
   );
@@ -28,7 +28,7 @@ export const createHopDong = async (data) => {
 
 // Cập nhật hợp đồng
 export const updateHopDong = async ({ id, data }) => {
-  const response = await axiosClient.put(
+  const response = await sessionClient.put(
       `/api/hop-dong/${id}`,
       data
   );
@@ -38,7 +38,7 @@ export const updateHopDong = async ({ id, data }) => {
 
 // Kết thúc hợp đồng
 export const ketThucHopDong = async ({ id, data }) => {
-  const response = await axiosClient.patch(
+  const response = await sessionClient.patch(
       `/api/hop-dong/${id}/ket-thuc`,
       data
   );
@@ -48,9 +48,12 @@ export const ketThucHopDong = async ({ id, data }) => {
 
 // Hủy hợp đồng
 export const huyHopDong = async (id) => {
-  const response = await axiosClient.patch(
+  const response = await sessionClient.patch(
       `/api/hop-dong/${id}/huy`
   );
 
   return response.data;
 };
+
+export const getHopDongPage = async (params, signal) =>
+  (await sessionClient.get("/api/hop-dong/phan-trang", { params, signal })).data;

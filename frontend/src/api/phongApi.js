@@ -1,7 +1,7 @@
 import sessionClient from './sessionClient'
 
-export const getAllPhong = async () => {
-  const response = await sessionClient.get('/api/phong')
+export const getAllPhong = async ({ signal } = {}) => {
+  const response = await sessionClient.get('/api/phong', { signal })
 
   return response.data
 }

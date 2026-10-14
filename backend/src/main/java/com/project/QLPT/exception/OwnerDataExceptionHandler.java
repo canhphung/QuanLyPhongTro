@@ -7,7 +7,8 @@ import org.springframework.web.bind.annotation.*;
 import com.project.QLPT.controller.*;
 
 /** Giới hạn handler vào các API đã chuyển đổi để không thay đổi nghiệp vụ còn lại. */
-@RestControllerAdvice(assignableTypes = {PhongController.class, NguoiThueController.class, DichVuController.class})
+@RestControllerAdvice(assignableTypes = {PhongController.class, NguoiThueController.class,
+    DichVuController.class, HopDongController.class, ThanhVienHopDongController.class})
 public class OwnerDataExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> handleConflict(DataIntegrityViolationException ex) {

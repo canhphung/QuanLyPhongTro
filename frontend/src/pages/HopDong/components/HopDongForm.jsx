@@ -26,6 +26,7 @@ function HopDongForm({
               : "Thêm hợp đồng mới"}
         </h2>
 
+        <fieldset disabled={isSaving}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {/* Phòng */}
           <div>
@@ -47,7 +48,7 @@ function HopDongForm({
 
               {phongOptions.map((phong) => (
                   <option key={phong.id} value={phong.id}>
-                    {phong.soPhong}
+                    {phong.tenNhaTro} · {phong.soPhong} · #{phong.id}
                   </option>
               ))}
             </select>
@@ -145,6 +146,7 @@ function HopDongForm({
             Hủy
           </button>
         </div>
+        </fieldset>
       </form>
   );
 }

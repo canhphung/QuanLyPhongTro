@@ -1,482 +1,145 @@
-import { useMemo, useState } from "react";
-
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-
-import {
-  createHopDong,
-  getAllHopDong,
-  huyHopDong,
-  ketThucHopDong,
-  updateHopDong,
-} from "../../api/hopDongApi";
-
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createHopDong, getHopDongPage, getHopDongById,
+  updateHopDong, ketThucHopDong, huyHopDong } from "../../api/hopDongApi";
 import { getAllPhong } from "../../api/phongApi";
-
+import useAccount from "../../hooks/useAccount";
+import getErrorMessage from "../../utils/getErrorMessage";
+import Pagination from "../../components/common/Pagination";
 import HopDongForm from "./components/HopDongForm";
 import HopDongTable from "./components/HopDongTable";
+import ThanhVienPanel from "./components/ThanhVienPanel";
 
-const emptyForm = {
-  phongId: "",
-  ngayBatDau: "",
-  ngayKetThuc: "",
-  giaThueThoaThuan: "",
-  tienCoc: "",
-};
+const emptyForm = { phongId: "", ngayBatDau: "", ngayKetThuc: "",
+  giaThueThoaThuan: "", tienCoc: "0" };
 
-function HopDongPage() {
-  const queryClient = useQueryClient();
-
-  const [showForm, setShowForm] = useState(false);
-
+export default function HopDongPage() {
+  const client = useQueryClient();
+  const { data: account } = useAccount();
+  const [form, setForm] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
+  const [memberBusy, setMemberBusy] = useState(false);
+  const [input, setInput] = useState("");
+  const [keyword, setKeyword] = useState("");
+  const [trangThai, setTrangThai] = useState("");
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(10);
+  const [notice, setNotice] = useState("");
+  const params = { page, size, keyword: keyword || undefined, trangThai: trangThai || undefined };
 
-  const [formData, setFormData] = useState(emptyForm);
-
-  // Text đang nhập vào ô tìm kiếm
-  const [searchInput, setSearchInput] = useState("");
-
-  // Từ khóa đã submit (tìm kiếm phía client theo số phòng)
-  const [searchKeyword, setSearchKeyword] = useState("");
-
-  // ==========================================
-  // GET danh sách hợp đồng / phòng
-  // ==========================================
-
-  const {
-    data: hopDongs = [],
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: ["hop-dong"],
-    queryFn: getAllHopDong,
-  });
-
-  const { data: phongs = [] } = useQuery({
-    queryKey: ["phong"],
-    queryFn: getAllPhong,
-  });
-
-  // ==========================================
-  // Lọc theo số phòng
-  // ==========================================
-
-  const filteredHopDongs = useMemo(() => {
-    if (!searchKeyword) {
-      return hopDongs;
+  const contracts = useQuery({ queryKey: ["hop-dong", account?.id, "page", params],
+    queryFn: ({ signal }) => getHopDongPage(params, signal), enabled: Boolean(account) });
+  const rooms = useQuery({ queryKey: ["phong", account?.id, "contract-options"],
+    queryFn: getAllPhong, enabled: Boolean(account) });
+  const detail = useQuery({ queryKey: ["hop-dong", account?.id, "detail", selectedId],
+    queryFn: ({ signal }) => getHopDongById(selectedId, signal), enabled: selectedId != null });
+  useEffect(() => {
+    if (contracts.data && !contracts.isFetching && !contracts.isError) {
+      const last = Math.max(0, contracts.data.totalPages - 1);
+      if (page > last) setPage(last);
     }
+  }, [contracts.data, contracts.isFetching, contracts.isError, page]);
 
-    const keyword = searchKeyword.toLowerCase();
-
-    return hopDongs.filter((hopDong) =>
-        (hopDong.soPhong || "")
-            .toLowerCase()
-            .includes(keyword)
-    );
-  }, [hopDongs, searchKeyword]);
-
-  // ==========================================
-  // Reset form
-  // ==========================================
-
-  const resetForm = () => {
-    setShowForm(false);
-    setEditingId(null);
-    setFormData(emptyForm);
-  };
-
-  // ==========================================
-  // Refresh danh sách
-  // ==========================================
-
-  const refreshHopDongList = () => {
-    queryClient.invalidateQueries({
-      queryKey: ["dashboard"],
-    });
-
-    // Trạng thái phòng thay đổi khi lập / kết thúc / hủy hợp đồng
-    queryClient.invalidateQueries({
-      queryKey: ["phong"],
-    });
-  };
-
-  // ==========================================
-  // Lấy message lỗi từ Spring Boot
-  // ==========================================
-
-  const getErrorMessage = (error, defaultMessage) => {
-    const data = error.response?.data;
-
-    if (data?.message) {
-      return data.message;
-    }
-
-    // Validation error của Spring Boot
-    // Ví dụ:
-    // {
-    //   ngayBatDau: "Ngày bắt đầu không được để trống",
-    //   tienCoc: "Tiền cọc không được âm"
-    // }
-
-    if (data && typeof data === "object") {
-      const messages = Object.values(data);
-
-      if (messages.length > 0) {
-        return messages.join("\n");
-      }
-    }
-
-    return defaultMessage;
-  };
-
-  // ==========================================
-  // CREATE
-  // ==========================================
-
-  const createMutation = useMutation({
-    mutationFn: createHopDong,
-
-    onSuccess: () => {
-      refreshHopDongList();
-      resetForm();
-    },
-
-    onError: (error) => {
-      alert(
-          getErrorMessage(
-              error,
-              "Không thể thêm hợp đồng"
-          )
-      );
-    },
+  const reset = () => { setForm(null); setEditingId(null); };
+  const refresh = () => Promise.all([
+    client.invalidateQueries({ queryKey: ["hop-dong", account?.id] }),
+    client.invalidateQueries({ queryKey: ["phong", account?.id] }),
+    client.invalidateQueries({ queryKey: ["thanh-vien", account?.id] }),
+  ]);
+  const onError = (error) => setNotice(getErrorMessage(error, "Không thể thực hiện yêu cầu"));
+  const onSuccess = async () => { reset(); setNotice("Đã cập nhật hợp đồng."); await refresh(); };
+  const save = useMutation({
+    mutationFn: ({ id, data }) => id == null ? createHopDong(data) : updateHopDong({ id, data }),
+    onSuccess, onError,
   });
+  const close = useMutation({ mutationFn: ketThucHopDong, onSuccess, onError });
+  const cancel = useMutation({ mutationFn: huyHopDong, onSuccess, onError });
+  const writing = save.isPending || close.isPending || cancel.isPending;
+  const busy = writing || memberBusy || contracts.isFetching;
+  const control = "rounded border bg-white px-3 py-2 disabled:opacity-50";
 
-  // ==========================================
-  // UPDATE
-  // ==========================================
-
-  const updateMutation = useMutation({
-    mutationFn: updateHopDong,
-
-    onSuccess: () => {
-      refreshHopDongList();
-      resetForm();
-    },
-
-    onError: (error) => {
-      alert(
-          getErrorMessage(
-              error,
-              "Không thể cập nhật hợp đồng"
-          )
-      );
-    },
-  });
-
-  // ==========================================
-  // KẾT THÚC hợp đồng
-  // ==========================================
-
-  const ketThucMutation = useMutation({
-    mutationFn: ketThucHopDong,
-
-    onSuccess: () => {
-      refreshHopDongList();
-      resetForm();
-    },
-
-    onError: (error) => {
-      alert(
-          getErrorMessage(
-              error,
-              "Không thể kết thúc hợp đồng"
-          )
-      );
-    },
-  });
-
-  // ==========================================
-  // HỦY hợp đồng
-  // ==========================================
-
-  const huyMutation = useMutation({
-    mutationFn: huyHopDong,
-
-    onSuccess: () => {
-      refreshHopDongList();
-      resetForm();
-    },
-
-    onError: (error) => {
-      alert(
-          getErrorMessage(
-              error,
-              "Không thể hủy hợp đồng"
-          )
-      );
-    },
-  });
-
-  // ==========================================
-  // Mở form thêm
-  // ==========================================
-
-  const handleAdd = () => {
-    setEditingId(null);
-    setFormData(emptyForm);
-    setShowForm(true);
+  const edit = (contract) => {
+    if (busy) return;
+    setEditingId(contract.id);
+    setForm({ phongId: contract.phongId, ngayBatDau: contract.ngayBatDau,
+      ngayKetThuc: contract.ngayKetThuc, giaThueThoaThuan: String(contract.giaThueThoaThuan),
+      tienCoc: String(contract.tienCoc) });
   };
-
-  // ==========================================
-  // Mở form sửa
-  // ==========================================
-
-  const handleEdit = (hopDong) => {
-    setEditingId(hopDong.id);
-
-    setFormData({
-      phongId: hopDong.phongId || "",
-      ngayBatDau: hopDong.ngayBatDau || "",
-      ngayKetThuc: hopDong.ngayKetThuc || "",
-      giaThueThoaThuan:
-          hopDong.giaThueThoaThuan || "",
-      tienCoc: hopDong.tienCoc || "",
-    });
-
-    setShowForm(true);
-  };
-
-  // ==========================================
-  // Input form thay đổi
-  // ==========================================
-
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  // ==========================================
-  // Submit thêm / sửa
-  // ==========================================
-
-  const handleSubmit = (event) => {
+  const submit = (event) => {
     event.preventDefault();
-
-    const data = {
-      phongId: Number(formData.phongId),
-
-      ngayBatDau: formData.ngayBatDau,
-
-      ngayKetThuc: formData.ngayKetThuc,
-
-      giaThueThoaThuan: Number(
-          formData.giaThueThoaThuan
-      ),
-
-      tienCoc: Number(formData.tienCoc),
-    };
-
-    if (editingId !== null) {
-      updateMutation.mutate({
-        id: editingId,
-        data,
-      });
-
-      return;
+    if (busy || rooms.isFetching) return;
+    const rent = String(form.giaThueThoaThuan).trim(), deposit = String(form.tienCoc).trim();
+    if (!form.phongId || !/^[0-9]{1,19}$/.test(rent) || !/[1-9]/.test(rent)
+      || !/^[0-9]{1,19}$/.test(deposit)) {
+      setNotice("Chọn phòng; giá thuê nguyên dương và cọc nguyên không âm, tối đa 19 chữ số."); return;
     }
-
-    createMutation.mutate(data);
+    save.mutate({ id: editingId, data: { ...form, phongId: Number(form.phongId),
+      giaThueThoaThuan: rent, tienCoc: deposit } });
   };
-
-  // ==========================================
-  // Kết thúc hợp đồng
-  // ==========================================
-
-  const handleKetThuc = (hopDong) => {
-    const ngayKetThucThucTe = window.prompt(
-        "Nhập ngày trả phòng thực tế theo định dạng YYYY-MM-DD:"
-    );
-
-    if (ngayKetThucThucTe === null) return;
-
-    const ngay = ngayKetThucThucTe.trim();
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(ngay)) {
-      alert("Ngày phải có định dạng YYYY-MM-DD");
-      return;
+  const endContract = (contract) => {
+    if (busy) return;
+    const date = window.prompt("Ngày trả phòng thực tế (YYYY-MM-DD):");
+    if (date == null) return;
+    const reason = window.prompt("Lý do kết thúc:");
+    if (reason == null) return;
+    if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date.trim()) || !reason.trim() || reason.trim().length > 500) {
+      setNotice("Nhập ngày YYYY-MM-DD và lý do từ 1 đến 500 ký tự."); return;
     }
-
-    const lyDoKetThuc = window.prompt("Nhập lý do kết thúc:");
-
-    if (lyDoKetThuc === null) return;
-
-    const lyDo = lyDoKetThuc.trim();
-
-    if (!lyDo || lyDo.length > 500) {
-      alert("Lý do phải có từ 1 đến 500 ký tự");
-      return;
-    }
-
-    const confirmed = window.confirm(
-        `Kết thúc hợp đồng phòng "${hopDong.soPhong}" ngày ${ngay}?\n` +
-        "Các hóa đơn còn nợ vẫn được giữ để tiếp tục thu."
-    );
-
-    if (!confirmed) return;
-
-    ketThucMutation.mutate({
-      id: hopDong.id,
-      data: {
-        ngayKetThucThucTe: ngay,
-        lyDoKetThuc: lyDo,
-      },
-    });
+    if (window.confirm("Kết thúc hợp đồng? Hóa đơn và công nợ vẫn được giữ."))
+      close.mutate({ id: contract.id, data: { ngayKetThucThucTe: date.trim(), lyDoKetThuc: reason.trim() } });
+  };
+  const cancelContract = (contract) => {
+    if (!busy && window.confirm("Hủy hợp đồng và trả phòng về trống?"))
+      cancel.mutate(contract.id);
   };
 
-  // ==========================================
-  // Hủy hợp đồng
-  // ==========================================
-
-  const handleHuy = (hopDong) => {
-    const confirmHuy = window.confirm(
-        `Bạn có chắc chắn muốn hủy hợp đồng phòng "${hopDong.soPhong}"?`
-    );
-
-    if (confirmHuy) {
-      huyMutation.mutate(hopDong.id);
-    }
-  };
-
-  // ==========================================
-  // Tìm kiếm
-  // ==========================================
-
-  const handleSearch = (event) => {
-    event.preventDefault();
-
-    setSearchKeyword(searchInput.trim());
-  };
-
-  // ==========================================
-  // Xóa tìm kiếm
-  // ==========================================
-
-  const handleClearSearch = () => {
-    setSearchInput("");
-    setSearchKeyword("");
-  };
-
-  const isSaving =
-      createMutation.isPending ||
-      updateMutation.isPending;
-
-  const isProcessing =
-      ketThucMutation.isPending ||
-      huyMutation.isPending;
-
-  // ==========================================
-  // Loading
-  // ==========================================
-
-  if (isLoading) {
-    return <p>Đang tải dữ liệu...</p>;
-  }
-
-  // ==========================================
-  // Error
-  // ==========================================
-
-  if (isError) {
-    return (
-        <p className="text-red-500">
-          Không thể tải danh sách hợp đồng
-        </p>
-    );
-  }
-
-  return (
-      <div>
-        {/* HEADER */}
-
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">
-            Quản lý hợp đồng
-          </h1>
-
-          <button
-              onClick={handleAdd}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-          >
-            + Thêm hợp đồng
-          </button>
-        </div>
-
-        {/* SEARCH */}
-
-        <form
-            onSubmit={handleSearch}
-            className="mb-6 flex gap-2"
-        >
-          <input
-              type="text"
-              value={searchInput}
-              onChange={(event) =>
-                  setSearchInput(event.target.value)
-              }
-              placeholder="Tìm kiếm theo số phòng..."
-              className="w-full max-w-md rounded border bg-white px-3 py-2 outline-none focus:border-blue-500"
-          />
-
-          <button
-              type="submit"
-              className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-          >
-            Tìm kiếm
-          </button>
-
-          {searchKeyword && (
-              <button
-                  type="button"
-                  onClick={handleClearSearch}
-                  className="rounded bg-gray-200 px-4 py-2 hover:bg-gray-300"
-              >
-                Xóa lọc
-              </button>
-          )}
-        </form>
-
-        {/* FORM */}
-
-        {showForm && (
-            <HopDongForm
-                formData={formData}
-                editingId={editingId}
-                phongs={phongs}
-                isSaving={isSaving}
-                onChange={handleChange}
-                onSubmit={handleSubmit}
-                onCancel={resetForm}
-            />
-        )}
-
-        {/* TABLE */}
-
-        <HopDongTable
-            hopDongs={filteredHopDongs}
-            onEdit={handleEdit}
-            onKetThuc={handleKetThuc}
-            onHuy={handleHuy}
-            isProcessing={isProcessing}
-        />
-      </div>
-  );
+  return <div>
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <h1 className="text-2xl font-bold">Quản lý hợp đồng</h1>
+      <button className={control} disabled={busy || rooms.isFetching || rooms.isError}
+        onClick={() => { setEditingId(null); setForm({ ...emptyForm }); setNotice(""); }}>Thêm hợp đồng</button>
+    </div>
+    {notice && <p role="status" className="mb-3 whitespace-pre-line">{notice}</p>}
+    <form className="mb-4 flex flex-wrap gap-2" onSubmit={(e) => {
+      e.preventDefault(); setKeyword(input.trim()); setPage(0);
+    }}>
+      <input aria-label="Tìm số phòng" value={input} onChange={(e) => setInput(e.target.value)}
+        placeholder="Tìm số phòng..." className={control} />
+      <button disabled={busy} className={control}>Tìm</button>
+      <select aria-label="Trạng thái hợp đồng" value={trangThai} disabled={busy}
+        onChange={(e) => { setTrangThai(e.target.value); setPage(0); }} className={control}>
+        <option value="">Tất cả trạng thái</option>
+        <option value="DANG_HIEU_LUC">Đang hiệu lực</option><option value="DA_KET_THUC">Đã kết thúc</option>
+        <option value="DA_HUY">Đã hủy</option><option value="HET_HAN">Hết hạn</option>
+      </select>
+    </form>
+    {rooms.isError && <p className="text-red-600">Không tải được phòng.
+      <button onClick={() => rooms.refetch()}>Thử lại</button></p>}
+    {form && <HopDongForm formData={form} editingId={editingId} phongs={rooms.data ?? []}
+      isSaving={busy || rooms.isFetching} onChange={(e) => {
+        const { name, value } = e.target; setForm((prev) => ({ ...prev, [name]: value }));
+      }} onSubmit={submit} onCancel={reset} />}
+    {contracts.isError ? <div className="text-red-600">
+      <p>{getErrorMessage(contracts.error, "Không tải được hợp đồng")}</p>
+      <button onClick={() => contracts.refetch()}>Thử lại</button>
+    </div> : contracts.isPending ? <p>Đang tải hợp đồng...</p> : <>
+      <HopDongTable hopDongs={contracts.data.content} onEdit={edit} onKetThuc={endContract}
+        onHuy={cancelContract} onMembers={(item) => {
+          if (!busy) { setSelectedId(item.id); setMemberBusy(false); }
+        }} isProcessing={busy} />
+      <Pagination page={page} size={size} totalElements={contracts.data.totalElements}
+        totalPages={contracts.data.totalPages} disabled={busy} onPageChange={setPage}
+        onSizeChange={(value) => { setSize(value); setPage(0); }} />
+    </>}
+    {selectedId != null && <section className="mt-6 rounded bg-white p-4 shadow">
+      <button disabled={busy} className="mb-3 text-blue-600"
+        onClick={() => { setSelectedId(null); setMemberBusy(false); }}>Đóng chi tiết</button>
+      {detail.isError ? <div><p>Không tải được chi tiết hợp đồng.</p>
+        <button onClick={() => detail.refetch()}>Thử lại</button></div>
+        : detail.isPending ? <p>Đang tải...</p> :
+        <ThanhVienPanel key={selectedId} contract={detail.data} accountId={account.id}
+          disabled={writing || detail.isFetching} onBusyChange={setMemberBusy} />}
+    </section>}
+  </div>;
 }
-
-export default HopDongPage;

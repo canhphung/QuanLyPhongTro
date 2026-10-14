@@ -31,6 +31,7 @@ function getStatusText(trangThai) {
 function HopDongTable({
   hopDongs = [],
   onEdit,
+  onMembers,
   onKetThuc,
   onHuy,
   isProcessing,
@@ -57,7 +58,7 @@ function HopDongTable({
                 <td className="px-4 py-3">{hopDong.id}</td>
 
                 <td className="px-4 py-3 font-medium">
-                  {hopDong.soPhong}
+                  {hopDong.tenNhaTro} · {hopDong.soPhong}
                 </td>
 
                 <td className="px-4 py-3">
@@ -66,6 +67,7 @@ function HopDongTable({
 
                 <td className="px-4 py-3">
                   {hopDong.ngayKetThuc || "-"}
+                  {hopDong.ngayKetThucThucTe && <p className="text-sm">Trả phòng: {hopDong.ngayKetThucThucTe}</p>}
                 </td>
 
                 <td className="px-4 py-3">
@@ -87,6 +89,8 @@ function HopDongTable({
                 </td>
 
                 <td className="whitespace-nowrap px-4 py-3">
+                  <button onClick={() => onMembers(hopDong)} disabled={isProcessing}
+                    className="mr-3 text-blue-600 disabled:opacity-50">Thành viên / Chi tiết</button>
                   <button
                       onClick={() => onEdit(hopDong)}
                       disabled={

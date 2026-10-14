@@ -1,8 +1,8 @@
 import sessionClient from "./sessionClient";
 
 // Lấy tất cả người thuê
-export const getAllNguoiThue = async () => {
-  const response = await sessionClient.get("/api/nguoi-thue");
+export const getAllNguoiThue = async ({ signal } = {}) => {
+  const response = await sessionClient.get("/api/nguoi-thue", { signal });
 
   return response.data;
 };

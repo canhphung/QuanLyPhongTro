@@ -4,10 +4,23 @@ import java.util.Locale;
 import org.springframework.data.jpa.domain.Specification;
 import com.project.QLPT.entity.*;
 import com.project.QLPT.enums.TrangThaiPhong;
+import com.project.QLPT.enums.TrangThaiHopDong;
 
 /** Mọi truy vấn danh sách đều áp dụng quyền sở hữu trước khi phân trang. */
 public final class OwnerSpecifications {
     private OwnerSpecifications() {}
+
+    public static Specification<HopDong> hopDong(Integer ownerId, String keyword,
+            TrangThaiHopDong trangThai) {
+        return (root, query, cb) -> {
+            var predicate = cb.and(
+                cb.equal(root.get("phong").get("nhaTro").get("chuTro").get("id"), ownerId),
+                cb.like(cb.lower(root.get("phong").get("soPhong")), pattern(keyword), '!'));
+            if (trangThai != null)
+                predicate = cb.and(predicate, cb.equal(root.get("trangThai"), trangThai));
+            return predicate;
+        };
+    }
 
     private static String pattern(String keyword) {
         String value = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);

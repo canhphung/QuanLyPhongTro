@@ -27,6 +27,8 @@ public record HopDongResponse(
     BigDecimal tienCoc,
     TrangThaiHopDong trangThai,
     LocalDate ngayKetThucThucTe,
-    String lyDoKetThuc
+    String lyDoKetThuc,
+    Integer nhaTroId,
+    String tenNhaTro
 ) {
 }

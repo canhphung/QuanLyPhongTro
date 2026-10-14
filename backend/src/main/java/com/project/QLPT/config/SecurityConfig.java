@@ -30,6 +30,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/me").authenticated()
                 .requestMatchers("/api/nha-tro", "/api/nha-tro/**").hasRole("CHU_TRO")
                 .requestMatchers("/api/phong", "/api/phong/**",
+                    "/api/hop-dong", "/api/hop-dong/**",
                     "/api/nguoi-thue", "/api/nguoi-thue/**",
                     "/api/dich-vu", "/api/dich-vu/**").hasRole("CHU_TRO")
                 // API cũ chưa lọc chủ sở hữu: chặn đến khi chuyển đổi xong.
