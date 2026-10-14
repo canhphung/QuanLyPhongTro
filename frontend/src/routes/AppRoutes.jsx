@@ -1,5 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 
+import TaiKhoanPage from "../pages/Auth/TaiKhoanPage";
+
 import MainLayout from "../components/layout/MainLayout";
 
 import DashboardPage from "../pages/Dashboard/DashboardPage";
@@ -13,6 +15,7 @@ import ThanhToanPage from "../pages/ThanhToan/ThanhToanPage";
 function AppRoutes() {
   return (
       <Routes>
+        <Route path="/tai-khoan" element={<TaiKhoanPage />} />
         <Route element={<MainLayout />}>
           <Route path="/" element={<DashboardPage />} />
 

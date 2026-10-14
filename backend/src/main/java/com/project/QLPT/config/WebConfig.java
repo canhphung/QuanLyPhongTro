@@ -33,6 +33,7 @@ public class WebConfig implements WebMvcConfigurer {
             "PATCH",
             "OPTIONS")
         .allowedHeaders("*")
+        .allowCredentials(true)
         .maxAge(3600);
   }
 }

@@ -74,4 +74,5 @@ public interface PhongRepository
       String keyword,
       Pageable pageable
   );
+  boolean existsByNhaTro_Id(Integer nhaTroId);
 }
