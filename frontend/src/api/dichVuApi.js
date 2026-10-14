@@ -1,8 +1,8 @@
 import sessionClient from "./sessionClient";
 
 // Lấy toàn bộ dịch vụ.
-export const getAllDichVu = async () => {
-  const response = await sessionClient.get("/api/dich-vu");
+export const getAllDichVu = async ({ signal } = {}) => {
+  const response = await sessionClient.get("/api/dich-vu", { signal });
   return response.data;
 };
 

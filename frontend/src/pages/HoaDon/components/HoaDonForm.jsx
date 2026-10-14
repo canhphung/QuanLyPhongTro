@@ -32,6 +32,7 @@ function HoaDonForm({
               : "Thêm hóa đơn mới"}
         </h2>
 
+        <fieldset disabled={isSaving}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {/* Hợp đồng */}
           <div>
@@ -53,7 +54,7 @@ function HoaDonForm({
 
               {hopDongOptions.map((hopDong) => (
                   <option key={hopDong.id} value={hopDong.id}>
-                HĐ {hopDong.id} - Phòng {hopDong.soPhong}
+                HĐ {hopDong.id} · {hopDong.tenNhaTro} · {hopDong.soPhong}
               {hopDong.trangThai === "DA_KET_THUC"
                 ? " - Đã kết thúc"
                 : ""}
@@ -69,7 +70,7 @@ function HoaDonForm({
             </label>
 
             <input
-                type="date"
+                type="month"
                 name="kyThanhToan"
                 value={formData.kyThanhToan}
                 onChange={onChange}
@@ -121,7 +122,7 @@ function HoaDonForm({
                 name="tienPhong"
                 value={formData.tienPhong}
                 onChange={onChange}
-                placeholder="Để trống lấy giá thuê của hợp đồng"
+                placeholder="Để trống: tạo lấy giá hợp đồng; sửa giữ tiền cũ"
                 min="0"
                 step="1"
                 className="w-full rounded border px-3 py-2 outline-none focus:border-blue-500"
@@ -129,6 +130,7 @@ function HoaDonForm({
           </div>
         </div>
 
+        <p className="mt-3 text-sm">Tháng đầu không đủ tháng hoặc hóa đơn bổ sung sau trả phòng phải nhập tiền phòng thực tế; có thể nhập 0.</p>
         <div className="mt-4 flex gap-2">
           <button
               type="submit"
@@ -150,6 +152,7 @@ function HoaDonForm({
             Hủy
           </button>
         </div>
+        </fieldset>
       </form>
   );
 }

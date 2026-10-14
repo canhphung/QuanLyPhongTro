@@ -145,6 +145,10 @@ public class DichVuService {
         entity.setTenDichVu(tenDichVu);
         entity.setDonViTinh(request.donViTinh().trim());
         entity.setDonGiaHienTai(request.donGiaHienTai());
+        if (!entity.getTinhTheoChiSo().equals(request.tinhTheoChiSo())
+                && chiTietHoaDonRepository.existsByDichVu_Id(id)) {
+            throw new BusinessException("Không đổi kiểu tính dịch vụ đã dùng trong hóa đơn; hãy tạo dịch vụ mới");
+        }
         entity.setTinhTheoChiSo(request.tinhTheoChiSo());
         entity.setDangHoatDong(request.dangHoatDong());
 

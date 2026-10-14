@@ -1,3 +1,5 @@
+import { formatMoney } from "../../../utils/decimalValues";
+
 function getStatusClass(trangThai) {
   switch (trangThai) {
     case "CHUA_THANH_TOAN":
@@ -27,6 +29,7 @@ function getStatusText(trangThai) {
 function HoaDonTable({
   hoaDons = [],
   onEdit,
+  onDetail,
   onDelete,
   isDeleting,
 }) {
@@ -53,7 +56,7 @@ function HoaDonTable({
                 <td className="px-4 py-3">{hoaDon.id}</td>
 
                 <td className="px-4 py-3 font-medium">
-                  {hoaDon.soPhong}
+                  {hoaDon.tenNhaTro} · {hoaDon.soPhong}
                 </td>
 
                 <td className="px-4 py-3">
@@ -69,11 +72,11 @@ function HoaDonTable({
                 </td>
 
                 <td className="px-4 py-3">
-                  {Number(hoaDon.tienPhong).toLocaleString("vi-VN")} đ
+                  {formatMoney(hoaDon.tienPhong)}
                 </td>
 
                 <td className="px-4 py-3">
-                  {Number(hoaDon.tongTien).toLocaleString("vi-VN")} đ
+                  {formatMoney(hoaDon.tongTien)}
                 </td>
 
                 <td className="px-4 py-3">
@@ -87,11 +90,13 @@ function HoaDonTable({
                 </td>
 
                 <td className="whitespace-nowrap px-4 py-3">
+                  <button onClick={() => onDetail(hoaDon)} disabled={isDeleting}
+                    className="mr-3 text-blue-600 disabled:opacity-50">Chi tiết / Dịch vụ</button>
                   <button
                       onClick={() => onEdit(hoaDon)}
                       disabled={
                         isDeleting ||
-                        hoaDon.trangThai !== "CHUA_THANH_TOAN"
+                        !hoaDon.coTheChinhSua
                       }
                       className="mr-3 text-blue-600 hover:underline disabled:opacity-50"
                   >

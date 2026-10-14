@@ -1,8 +1,8 @@
 import sessionClient from "./sessionClient";
 
 // Lấy tất cả hợp đồng
-export const getAllHopDong = async () => {
-  const response = await sessionClient.get("/api/hop-dong");
+export const getAllHopDong = async ({ signal } = {}) => {
+  const response = await sessionClient.get("/api/hop-dong", { signal });
 
   return response.data;
 };

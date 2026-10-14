@@ -7,6 +7,7 @@ function Sidebar() {
     { name: "Người thuê", path: "/nguoi-thue" },
     { name: "Dịch vụ", path: "/dich-vu" },
     { name: "Hợp đồng", path: "/hop-dong" },
+    { name: "Hóa đơn", path: "/hoa-don" },
   ];
 
   return (

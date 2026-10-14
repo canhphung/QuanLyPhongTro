@@ -16,7 +16,7 @@ import com.project.QLPT.enums.TrangThaiHoaDon;
  * để đảm bảo ràng buộc duy nhất ở tầng nghiệp vụ.
  * </p>
  */
-public interface HoaDonRepository extends JpaRepository<HoaDon, Integer> {
+public interface HoaDonRepository extends JpaRepository<HoaDon, Integer>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<HoaDon> {
 
     /**
      * Kiểm tra xem hợp đồng đã có hóa đơn cho kỳ thanh toán này chưa.
@@ -58,4 +58,25 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Integer> {
      * @return danh sách hóa đơn có trạng thái tương ứng
      */
     List<HoaDon> findByTrangThai(TrangThaiHoaDon trangThai);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"hopDong", "hopDong.phong", "hopDong.phong.nhaTro"})
+    java.util.Optional<HoaDon> findByIdAndHopDong_Phong_NhaTro_ChuTro_Id(Integer id, Integer ownerId);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select h from HoaDon h where h.id = :id and h.hopDong.phong.nhaTro.chuTro.id = :ownerId")
+    java.util.Optional<HoaDon> findOwnedForUpdate(
+        @org.springframework.data.repository.query.Param("id") Integer id,
+        @org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
+
+    @Override
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"hopDong", "hopDong.phong", "hopDong.phong.nhaTro"})
+    org.springframework.data.domain.Page<HoaDon> findAll(
+        org.springframework.data.jpa.domain.Specification<HoaDon> specification,
+        org.springframework.data.domain.Pageable pageable);
+
+    @Override
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"hopDong", "hopDong.phong", "hopDong.phong.nhaTro"})
+    java.util.List<HoaDon> findAll(
+        org.springframework.data.jpa.domain.Specification<HoaDon> specification,
+        org.springframework.data.domain.Sort sort);
 }

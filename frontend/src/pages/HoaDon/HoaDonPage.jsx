@@ -1,385 +1,124 @@
-import { useState } from "react";
-
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-
-import {
-  createHoaDon,
-  deleteHoaDon,
-  getAllHoaDon,
-  updateHoaDon,
-} from "../../api/hoaDonApi";
-
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getHoaDonPage, getHoaDonById, createHoaDon, updateHoaDon, deleteHoaDon } from "../../api/hoaDonApi";
 import { getAllHopDong } from "../../api/hopDongApi";
-
+import useAccount from "../../hooks/useAccount";
+import getErrorMessage from "../../utils/getErrorMessage";
+import { normalizeDecimal, validDecimal } from "../../utils/decimalValues";
+import Pagination from "../../components/common/Pagination";
 import HoaDonForm from "./components/HoaDonForm";
 import HoaDonTable from "./components/HoaDonTable";
+import ChiTietPanel from "./components/ChiTietPanel";
 
-const emptyForm = {
-  hopDongId: "",
-  kyThanhToan: "",
-  ngayLap: "",
-  hanThanhToan: "",
-  tienPhong: "",
-};
+const emptyForm = { hopDongId: "", kyThanhToan: "", ngayLap: "", hanThanhToan: "", tienPhong: "" };
 
-function HoaDonPage() {
-  const queryClient = useQueryClient();
-
-  const [showForm, setShowForm] = useState(false);
-
+export default function HoaDonPage() {
+  const client = useQueryClient();
+  const { data: account } = useAccount();
+  const [form, setForm] = useState(null);
   const [editingId, setEditingId] = useState(null);
-
-  const [formData, setFormData] = useState(emptyForm);
-
-  // Trạng thái đang lọc ("" = tất cả)
-  const [trangThaiFilter, setTrangThaiFilter] = useState("");
-
-  // ==========================================
-  // GET danh sách hóa đơn / hợp đồng
-  // ==========================================
-
-  const {
-    data: hoaDons = [],
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: ["hoa-don", trangThaiFilter],
-
-    queryFn: () => getAllHoaDon(trangThaiFilter),
-  });
-
-  const { data: hopDongs = [] } = useQuery({
-    queryKey: ["hop-dong"],
-    queryFn: getAllHopDong,
-  });
-
-  // ==========================================
-  // Reset form
-  // ==========================================
-
-  const resetForm = () => {
-    setShowForm(false);
-    setEditingId(null);
-    setFormData(emptyForm);
-  };
-
-  // ==========================================
-  // Refresh danh sách
-  // ==========================================
-
-  const refreshHoaDonList = () => {
-    queryClient.invalidateQueries({
-      queryKey: ["hoa-don"],
-    });
-  };
-
-  // ==========================================
-  // Lấy message lỗi từ Spring Boot
-  // ==========================================
-
-  const getErrorMessage = (error, defaultMessage) => {
-    const data = error.response?.data;
-
-    if (data?.message) {
-      return data.message;
+  const [selectedId, setSelectedId] = useState(null);
+  const [lineBusy, setLineBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [input, setInput] = useState("");
+  const [keyword, setKeyword] = useState("");
+  const [status, setStatus] = useState("");
+  const [contractId, setContractId] = useState("");
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(10);
+  const params = { page, size, keyword: keyword || undefined, trangThai: status || undefined,
+    hopDongId: contractId || undefined };
+  const bills = useQuery({ queryKey: ["hoa-don", account?.id, "page", params],
+    queryFn: ({ signal }) => getHoaDonPage(params, signal), enabled: Boolean(account) });
+  const contracts = useQuery({ queryKey: ["hop-dong", account?.id, "bill-options"],
+    queryFn: getAllHopDong, enabled: Boolean(account) });
+  const detail = useQuery({ queryKey: ["hoa-don", account?.id, "detail", selectedId],
+    queryFn: ({ signal }) => getHoaDonById(selectedId, signal), enabled: selectedId != null });
+  useEffect(() => {
+    if (bills.data && !bills.isFetching && !bills.isError) {
+      const last = Math.max(0, bills.data.totalPages - 1);
+      if (page > last) setPage(last);
     }
-
-    // Validation error của Spring Boot
-    // Ví dụ:
-    // {
-    //   kyThanhToan: "Kỳ thanh toán không được để trống",
-    //   hanThanhToan: "Hạn thanh toán không được sớm hơn ngày lập"
-    // }
-
-    if (data && typeof data === "object") {
-      const messages = Object.values(data);
-
-      if (messages.length > 0) {
-        return messages.join("\n");
-      }
-    }
-
-    return defaultMessage;
-  };
-
-  // ==========================================
-  // CREATE
-  // ==========================================
-
-  const createMutation = useMutation({
-    mutationFn: createHoaDon,
-
-    onSuccess: () => {
-      refreshHoaDonList();
-      resetForm();
-    },
-
-    onError: (error) => {
-      alert(
-          getErrorMessage(
-              error,
-              "Không thể thêm hóa đơn"
-          )
-      );
-    },
+  }, [bills.data, bills.isFetching, bills.isError, page]);
+  const reset = () => { setForm(null); setEditingId(null); };
+  const refresh = () => client.invalidateQueries({ queryKey: ["hoa-don", account?.id] });
+  const onError = (error) => setNotice(getErrorMessage(error, "Không thể thực hiện yêu cầu"));
+  const save = useMutation({
+    mutationFn: ({ id, data }) => id == null ? createHoaDon(data) : updateHoaDon({ id, data }),
+    onSuccess: async () => { reset(); setNotice("Đã lưu hóa đơn."); await refresh(); }, onError,
   });
-
-  // ==========================================
-  // UPDATE
-  // ==========================================
-
-  const updateMutation = useMutation({
-    mutationFn: updateHoaDon,
-
-    onSuccess: () => {
-      refreshHoaDonList();
-      resetForm();
-    },
-
-    onError: (error) => {
-      alert(
-          getErrorMessage(
-              error,
-              "Không thể cập nhật hóa đơn"
-          )
-      );
-    },
+  const remove = useMutation({ mutationFn: deleteHoaDon,
+    onSuccess: async (_, id) => {
+      if (editingId === id) reset();
+      if (selectedId === id) { setSelectedId(null); setLineBusy(false); }
+      setNotice("Đã xóa hóa đơn."); await refresh();
+    }, onError,
   });
-
-  // ==========================================
-  // DELETE
-  // ==========================================
-
-  const deleteMutation = useMutation({
-    mutationFn: deleteHoaDon,
-
-    onSuccess: () => {
-      refreshHoaDonList();
-    },
-
-    onError: (error) => {
-      alert(
-          getErrorMessage(
-              error,
-              "Không thể xóa hóa đơn"
-          )
-      );
-    },
-  });
-
-  // ==========================================
-  // Mở form thêm
-  // ==========================================
-
-  const handleAdd = () => {
-    setEditingId(null);
-    setFormData(emptyForm);
-    setShowForm(true);
+  const writing = save.isPending || remove.isPending;
+  const busy = writing || lineBusy || bills.isFetching;
+  const control = "rounded border bg-white px-3 py-2 disabled:opacity-50";
+  const edit = (bill) => {
+    if (busy || !bill.coTheChinhSua) return;
+    setEditingId(bill.id);
+    setForm({ hopDongId: bill.hopDongId, kyThanhToan: bill.kyThanhToan.slice(0, 7),
+      ngayLap: bill.ngayLap, hanThanhToan: bill.hanThanhToan, tienPhong: bill.tienPhong });
   };
-
-  // ==========================================
-  // Mở form sửa
-  // ==========================================
-
-  const handleEdit = (hoaDon) => {
-    setEditingId(hoaDon.id);
-
-    setFormData({
-      hopDongId: hoaDon.hopDongId || "",
-      kyThanhToan: hoaDon.kyThanhToan || "",
-      ngayLap: hoaDon.ngayLap || "",
-      hanThanhToan: hoaDon.hanThanhToan || "",
-      tienPhong: hoaDon.tienPhong || "",
-    });
-
-    setShowForm(true);
+  const submit = (e) => {
+    e.preventDefault();
+    if (busy) return;
+    const rent = String(form.tienPhong).trim();
+    if (rent && !validDecimal(rent, 19, 0)) { setNotice("Tiền phòng nguyên không âm, tối đa 19 chữ số."); return; }
+    save.mutate({ id: editingId, data: { ...form, hopDongId: Number(form.hopDongId),
+      kyThanhToan: form.kyThanhToan + "-01", tienPhong: rent ? normalizeDecimal(rent) : null } });
   };
-
-  // ==========================================
-  // Input form thay đổi
-  // ==========================================
-
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  // ==========================================
-  // Submit thêm / sửa
-  // ==========================================
-
-  const handleSubmit = (event) => {
-    event.preventDefault();
-
-    const data = {
-      hopDongId: Number(formData.hopDongId),
-
-      kyThanhToan: formData.kyThanhToan,
-
-      ngayLap: formData.ngayLap,
-
-      hanThanhToan: formData.hanThanhToan,
-
-      tienPhong:
-          formData.tienPhong === ""
-              ? null
-              : Number(formData.tienPhong),
-    };
-
-    if (editingId !== null) {
-      updateMutation.mutate({
-        id: editingId,
-        data,
-      });
-
-      return;
-    }
-
-    createMutation.mutate(data);
-  };
-
-  // ==========================================
-  // Xóa
-  // ==========================================
-
-  const handleDelete = (hoaDon) => {
-    const confirmDelete = window.confirm(
-        `Bạn có chắc chắn muốn xóa hóa đơn "${hoaDon.soPhong}" kỳ ${hoaDon.kyThanhToan}?`
-    );
-
-    if (confirmDelete) {
-      deleteMutation.mutate(hoaDon.id);
-    }
-  };
-
-  // ==========================================
-  // Lọc theo trạng thái
-  // ==========================================
-
-  const handleFilterChange = (event) => {
-    setTrangThaiFilter(event.target.value);
-  };
-
-  // ==========================================
-  // Xóa lọc
-  // ==========================================
-
-  const handleClearFilter = () => {
-    setTrangThaiFilter("");
-  };
-
-  const isSaving =
-      createMutation.isPending ||
-      updateMutation.isPending;
-
-  // ==========================================
-  // Loading
-  // ==========================================
-
-  if (isLoading) {
-    return <p>Đang tải dữ liệu...</p>;
-  }
-
-  // ==========================================
-  // Error
-  // ==========================================
-
-  if (isError) {
-    return (
-        <p className="text-red-500">
-          Không thể tải danh sách hóa đơn
-        </p>
-    );
-  }
-
-  return (
-      <div>
-        {/* HEADER */}
-
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">
-            Quản lý hóa đơn
-          </h1>
-
-          <button
-              onClick={handleAdd}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-          >
-            + Thêm hóa đơn
-          </button>
-        </div>
-
-        {/* FILTER */}
-
-        <form
-            onSubmit={(event) => event.preventDefault()}
-            className="mb-6 flex gap-2"
-        >
-          <select
-              value={trangThaiFilter}
-              onChange={handleFilterChange}
-              className="w-full max-w-md rounded border bg-white px-3 py-2 outline-none focus:border-blue-500"
-          >
-            <option value="">
-              -- Tất cả trạng thái --
-            </option>
-
-            <option value="CHUA_THANH_TOAN">
-              Chưa thanh toán
-            </option>
-
-            <option value="THANH_TOAN_MOT_PHAN">
-              Thanh toán một phần
-            </option>
-
-            <option value="DA_THANH_TOAN">
-              Đã thanh toán
-            </option>
-          </select>
-
-          {trangThaiFilter && (
-              <button
-                  type="button"
-                  onClick={handleClearFilter}
-                  className="rounded bg-gray-200 px-4 py-2 hover:bg-gray-300"
-              >
-                Xóa lọc
-              </button>
-          )}
-        </form>
-
-        {/* FORM */}
-
-        {showForm && (
-            <HoaDonForm
-                formData={formData}
-                editingId={editingId}
-                hopDongs={hopDongs}
-                isSaving={isSaving}
-                onChange={handleChange}
-                onSubmit={handleSubmit}
-                onCancel={resetForm}
-            />
-        )}
-
-        {/* TABLE */}
-
-        <HoaDonTable
-            hoaDons={hoaDons}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            isDeleting={deleteMutation.isPending}
-        />
-      </div>
-  );
+  return <div>
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <h1 className="text-2xl font-bold">Quản lý hóa đơn</h1>
+      <button className={control} disabled={busy || contracts.isFetching || contracts.isError}
+        onClick={() => { setEditingId(null); setForm({ ...emptyForm }); setNotice(""); }}>Thêm hóa đơn</button>
+    </div>
+    {notice && <p role="status" className="mb-3 whitespace-pre-line">{notice}</p>}
+    <form className="mb-4 flex flex-wrap gap-2" onSubmit={(e) => {
+      e.preventDefault(); setKeyword(input.trim()); setPage(0);
+    }}>
+      <input aria-label="Tìm số phòng" value={input} onChange={(e) => setInput(e.target.value)}
+        placeholder="Tìm số phòng..." className={control} />
+      <button disabled={busy} className={control}>Tìm</button>
+      <select aria-label="Lọc trạng thái hóa đơn" value={status} disabled={busy}
+        onChange={(e) => { setStatus(e.target.value); setPage(0); }} className={control}>
+        <option value="">Tất cả trạng thái</option><option value="CHUA_THANH_TOAN">Chưa thanh toán</option>
+        <option value="THANH_TOAN_MOT_PHAN">Thanh toán một phần</option><option value="DA_THANH_TOAN">Đã thanh toán</option>
+      </select>
+      <select aria-label="Lọc hợp đồng" value={contractId} disabled={busy || contracts.isFetching}
+        onChange={(e) => { setContractId(e.target.value); setPage(0); }} className={control}>
+        <option value="">Tất cả hợp đồng</option>
+        {(contracts.data ?? []).map((h) => <option key={h.id} value={h.id}>
+          HĐ #{h.id} · {h.tenNhaTro} · {h.soPhong}
+        </option>)}
+      </select>
+    </form>
+    {contracts.isError && <p className="text-red-600">Không tải được hợp đồng.
+      <button onClick={() => contracts.refetch()}>Thử lại</button></p>}
+    {form && <HoaDonForm formData={form} editingId={editingId} hopDongs={contracts.data ?? []}
+      isSaving={busy || contracts.isFetching} onChange={(e) => {
+        const { name, value } = e.target; setForm((prev) => ({ ...prev, [name]: value }));
+      }} onSubmit={submit} onCancel={reset} />}
+    {bills.isError ? <div className="text-red-600"><p>{getErrorMessage(bills.error, "Không tải được hóa đơn")}</p>
+      <button onClick={() => bills.refetch()}>Thử lại</button></div> : bills.isPending ? <p>Đang tải...</p> : <>
+      <HoaDonTable hoaDons={bills.data.content} onEdit={edit} onDelete={(bill) => {
+        if (!busy && bill.coTheChinhSua && window.confirm("Xóa hóa đơn cùng các dòng dịch vụ?")) remove.mutate(bill.id);
+      }} onDetail={(bill) => { if (!busy) { setSelectedId(bill.id); setLineBusy(false); } }} isDeleting={busy} />
+      <Pagination page={page} size={size} totalElements={bills.data.totalElements}
+        totalPages={bills.data.totalPages} disabled={busy} onPageChange={setPage}
+        onSizeChange={(n) => { setSize(n); setPage(0); }} />
+    </>}
+    {selectedId != null && <section className="mt-6 rounded bg-white p-4 shadow">
+      <button className="mb-3 text-blue-600" disabled={busy}
+        onClick={() => { setSelectedId(null); setLineBusy(false); }}>Đóng chi tiết</button>
+      {detail.isError ? <div><p>Không tải được chi tiết hóa đơn.</p>
+        <button onClick={() => detail.refetch()}>Thử lại</button></div> :
+        detail.isPending ? <p>Đang tải...</p> : <ChiTietPanel key={selectedId} invoice={detail.data}
+          accountId={account.id} disabled={writing || detail.isFetching} onBusyChange={setLineBusy} />}
+    </section>}
+  </div>;
 }
-
-export default HoaDonPage;

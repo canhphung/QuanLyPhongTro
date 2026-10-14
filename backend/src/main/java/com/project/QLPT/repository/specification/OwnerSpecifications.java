@@ -5,10 +5,26 @@ import org.springframework.data.jpa.domain.Specification;
 import com.project.QLPT.entity.*;
 import com.project.QLPT.enums.TrangThaiPhong;
 import com.project.QLPT.enums.TrangThaiHopDong;
+import com.project.QLPT.enums.TrangThaiHoaDon;
 
 /** Mọi truy vấn danh sách đều áp dụng quyền sở hữu trước khi phân trang. */
 public final class OwnerSpecifications {
     private OwnerSpecifications() {}
+
+    public static Specification<HoaDon> hoaDon(Integer ownerId, Integer hopDongId,
+            String keyword, TrangThaiHoaDon trangThai) {
+        return (root, query, cb) -> {
+            var predicate = cb.and(
+                cb.equal(root.get("hopDong").get("phong").get("nhaTro").get("chuTro").get("id"), ownerId),
+                cb.like(cb.lower(root.get("hopDong").get("phong").get("soPhong")), pattern(keyword), '!'));
+            if (hopDongId != null)
+                predicate = cb.and(predicate, cb.equal(root.get("hopDong").get("id"), hopDongId));
+            if (trangThai != null)
+                predicate = cb.and(predicate, cb.equal(root.get("trangThai"), trangThai));
+            return predicate;
+        };
+    }
+
 
     public static Specification<HopDong> hopDong(Integer ownerId, String keyword,
             TrangThaiHopDong trangThai) {

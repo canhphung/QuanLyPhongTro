@@ -1,6 +1,7 @@
 package com.project.QLPT.dto.response;
 
 import java.math.BigDecimal;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 /**
  * DTO chứa thông tin một dịch vụ được trả về cho client.
@@ -20,7 +21,7 @@ public record DichVuResponse(
 
                 String donViTinh,
 
-                BigDecimal donGiaHienTai,
+                @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal donGiaHienTai,
 
                 Boolean tinhTheoChiSo,
 
