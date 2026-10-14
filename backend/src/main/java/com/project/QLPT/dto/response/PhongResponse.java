@@ -22,7 +22,9 @@ public record PhongResponse(
     String soPhong,
     BigDecimal dienTich,
     BigDecimal giaThue,
-    TrangThaiPhong trangThai
+    TrangThaiPhong trangThai,
+    Integer nhaTroId,
+    String tenNhaTro
 ) {
 
 }

@@ -139,10 +139,11 @@ public class PhongController {
       @RequestParam(required = false) String keyword,
       @RequestParam(required = false) TrangThaiPhong trangThai,
       @RequestParam(defaultValue = "id") String sortBy,
-      @RequestParam(defaultValue = "asc") String direction
+      @RequestParam(defaultValue = "asc") String direction,
+      @RequestParam(required = false) Integer nhaTroId
   ) {
     return phongService.getPage(
-        page, size, keyword, trangThai, sortBy, direction
+        page, size, keyword, trangThai, sortBy, direction, nhaTroId
     );
   }
 }

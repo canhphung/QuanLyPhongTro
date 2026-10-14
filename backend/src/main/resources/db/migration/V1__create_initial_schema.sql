@@ -106,6 +106,7 @@ CREATE TABLE dich_vu
     don_gia_hien_tai DECIMAL(19, 0) NOT NULL,
     tinh_theo_chi_so BOOLEAN NOT NULL,
     dang_hoat_dong   BOOLEAN NOT NULL,
+    CONSTRAINT uk_dich_vu_chu_tro_ten UNIQUE (chu_tro_id, ten_dich_vu),
     INDEX idx_dich_vu_chu_tro (chu_tro_id),
     CONSTRAINT fk_dich_vu_chu_tro FOREIGN KEY (chu_tro_id) REFERENCES chu_tro(
                                                                               id)

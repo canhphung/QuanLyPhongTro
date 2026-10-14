@@ -2,13 +2,10 @@ import { NavLink } from "react-router-dom";
 
 function Sidebar() {
   const menu = [
-    { name: "Dashboard", path: "/" },
+    { name: "Tài khoản & Nhà trọ", path: "/tai-khoan" },
     { name: "Phòng", path: "/phong" },
     { name: "Người thuê", path: "/nguoi-thue" },
-    { name: "Hợp đồng", path: "/hop-dong" },
     { name: "Dịch vụ", path: "/dich-vu" },
-    { name: "Hóa đơn", path: "/hoa-don" },
-    { name: "Thanh toán", path: "/thanh-toan" },
   ];
 
   return (

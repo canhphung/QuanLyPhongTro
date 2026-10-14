@@ -1,8 +1,8 @@
 import sessionClient from "./sessionClient";
 
-export const getMe = async () => {
+export const getMe = async ({ signal } = {}) => {
   try {
-    return (await sessionClient.get("/api/auth/me")).data;
+    return (await sessionClient.get("/api/auth/me", { signal })).data;
   } catch (error) {
     if (error.response?.status === 401) return null;
     throw error;

@@ -1,5 +1,6 @@
 function PhongForm({
   formData,
+  nhaTros = [],
   editingId,
   isSaving,
   onChange,
@@ -15,7 +16,19 @@ function PhongForm({
           {editingId !== null ? "Cập nhật phòng" : "Thêm phòng mới"}
         </h2>
 
+        <fieldset disabled={isSaving}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <label>
+            <span className="mb-1 block font-medium">Nhà trọ</span>
+            <select name="nhaTroId" value={formData.nhaTroId} onChange={onChange}
+                required disabled={editingId !== null}
+                className="w-full rounded border px-3 py-2">
+              <option value="">Chọn nhà trọ</option>
+              {nhaTros.map((house) => <option key={house.id} value={house.id}>
+                {house.tenNhaTro} · #{house.id}
+              </option>)}
+            </select>
+          </label>
           <div>
             <label className="mb-1 block font-medium">Số phòng</label>
             <input
@@ -82,6 +95,7 @@ function PhongForm({
             Hủy
           </button>
         </div>
+        </fieldset>
       </form>
   );
 }

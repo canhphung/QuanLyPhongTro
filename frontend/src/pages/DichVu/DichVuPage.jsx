@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   useMutation,
@@ -9,12 +9,15 @@ import {
 import {
   createDichVu,
   deleteDichVu,
-  getAllDichVu,
+  getDichVuPage,
   updateDichVu,
 } from "../../api/dichVuApi";
 
 import DichVuForm from "./components/DichVuForm";
 import DichVuTable from "./components/DichVuTable";
+
+import useAccount from "../../hooks/useAccount";
+import Pagination from "../../components/common/Pagination";
 
 const emptyForm = {
   tenDichVu: "",
@@ -26,6 +29,9 @@ const emptyForm = {
 
 function DichVuPage() {
   const queryClient = useQueryClient();
+  const { data: account } = useAccount();
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(10);
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -36,32 +42,22 @@ function DichVuPage() {
   const [statusFilter, setStatusFilter] = useState("");
 
   // GET danh sách dịch vụ.
-  const {
-    data: dichVus = [],
-    isLoading,
-    isError,
-    refetch,
-  } = useQuery({
-    queryKey: ["dich-vu"],
-    queryFn: getAllDichVu,
+  const params = { page, size, keyword: searchKeyword || undefined, hoatDong: statusFilter === "" ? undefined : statusFilter === "true" };
+  const { data: result, isLoading, isFetching, isError, refetch } = useQuery({
+    queryKey: ["dich-vu", account?.id, "phan-trang", params],
+    queryFn: ({ signal }) => getDichVuPage(params, signal),
+    enabled: Boolean(account),
   });
+  const dichVus = result?.content ?? [];
 
+  useEffect(() => {
+    if (result && !isFetching && !isError) {
+      const last = Math.max(0, result.totalPages - 1);
+      if (page > last) setPage(last);
+    }
+  }, [result, isFetching, isError, page]);
   // Tìm kiếm theo tên và lọc theo trạng thái.
-  const filteredDichVus = useMemo(() => {
-    const keyword = searchKeyword.toLowerCase();
 
-    return dichVus.filter((item) => {
-      const matchName = item.tenDichVu
-        .toLowerCase()
-        .includes(keyword);
-
-      const matchStatus =
-        statusFilter === "" ||
-        item.dangHoatDong === (statusFilter === "true");
-
-      return matchName && matchStatus;
-    });
-  }, [dichVus, searchKeyword, statusFilter]);
 
   // Reset form.
   const resetForm = () => {
@@ -145,6 +141,7 @@ function DichVuPage() {
 
   // Mở form thêm.
   const handleAdd = () => {
+    if (isProcessing) return;
     setEditingId(null);
     setFormData({ ...emptyForm });
     setShowForm(true);
@@ -152,6 +149,7 @@ function DichVuPage() {
 
   // Mở form sửa.
   const handleEdit = (item) => {
+    if (isProcessing) return;
     setEditingId(item.id);
 
     setFormData({
@@ -178,6 +176,7 @@ function DichVuPage() {
   // Submit thêm / sửa.
   const handleSubmit = (event) => {
     event.preventDefault();
+    if (isProcessing) return;
 
     const tenDichVu = formData.tenDichVu.trim();
     const donViTinh = formData.donViTinh.trim();
@@ -218,6 +217,7 @@ function DichVuPage() {
 
   // Xóa dịch vụ.
   const handleDelete = (item) => {
+    if (isProcessing) return;
     const confirmDelete = window.confirm(
       `Bạn có chắc chắn muốn xóa dịch vụ "${item.tenDichVu}"?`
     );
@@ -231,19 +231,21 @@ function DichVuPage() {
   const handleSearch = (event) => {
     event.preventDefault();
     setSearchKeyword(searchInput.trim());
+    setPage(0);
   };
 
   // Xóa lọc.
   const handleClearFilter = () => {
     setSearchInput("");
     setSearchKeyword("");
+    setPage(0);
     setStatusFilter("");
   };
 
   const isSaving =
     createMutation.isPending || updateMutation.isPending;
 
-  const isProcessing = isSaving || deleteMutation.isPending;
+  const isProcessing = isSaving || deleteMutation.isPending || isFetching;
 
   if (isLoading) {
     return <p>Đang tải dữ liệu...</p>;
@@ -298,7 +300,7 @@ function DichVuPage() {
 
         <select
           value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
+          onChange={(event) => { setStatusFilter(event.target.value); setPage(0); }}
           className="rounded border bg-white px-3 py-2"
         >
           <option value="">Tất cả trạng thái</option>
@@ -336,11 +338,16 @@ function DichVuPage() {
 
       {/* TABLE */}
       <DichVuTable
-        dichVus={filteredDichVus}
+        dichVus={dichVus}
         onEdit={handleEdit}
         onDelete={handleDelete}
         isProcessing={isProcessing}
       />
+      <Pagination page={page} size={size}
+        totalElements={result?.totalElements ?? 0} totalPages={result?.totalPages ?? 0}
+        disabled={isProcessing} onPageChange={setPage}
+        onSizeChange={(next) => { setSize(next); setPage(0); }} />
+
     </div>
   );
 }

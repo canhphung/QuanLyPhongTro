@@ -17,8 +17,11 @@ import getErrorMessage from "../../utils/getErrorMessage";
 import PhongForm from "./components/PhongForm";
 import PhongTable from "./components/PhongTable";
 import Pagination from "../../components/common/Pagination";
+import useAccount from "../../hooks/useAccount";
+import { getNhaTroOptions } from "../../api/nhaTroApi";
 
 const emptyForm = {
+  nhaTroId: "",
   soPhong: "",
   dienTich: "",
   giaThue: "",
@@ -33,6 +36,12 @@ const statusLabels = {
 
 function PhongPage() {
   const queryClient = useQueryClient();
+  const { data: account } = useAccount();
+  const houses = useQuery({
+    queryKey: ["nha-tro", account?.id, "options"],
+    queryFn: ({ signal }) => getNhaTroOptions(signal),
+    enabled: Boolean(account),
+  });
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -43,11 +52,13 @@ function PhongPage() {
   const [trangThai, setTrangThai] = useState("");
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(10);
+  const [nhaTroId, setNhaTroId] = useState("");
   const [sort, setSort] = useState("id:asc");
 
   const [sortBy, direction] = sort.split(":");
 
   const params = {
+    nhaTroId: nhaTroId || undefined,
     page,
     size,
     keyword: keyword || undefined,
@@ -64,8 +75,9 @@ function PhongPage() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["phong", "phan-trang", params],
-    queryFn: () => getPhongPage(params),
+    queryKey: ["phong", account?.id, "phan-trang", params],
+    queryFn: ({ signal }) => getPhongPage(params, signal),
+    enabled: Boolean(account),
   });
 
   const phongs = data?.content ?? [];
@@ -118,7 +130,10 @@ function PhongPage() {
 
   const deleteMutation = useMutation({
     mutationFn: deletePhong,
-    onSuccess: refreshData,
+    onSuccess: async (_, deletedId) => {
+      if (editingId === deletedId) resetForm();
+      await refreshData();
+    },
     onError: (error) => showError(error, "Không thể xóa phòng"),
   });
 
@@ -136,17 +151,18 @@ function PhongPage() {
       isSaving ||
       deleteMutation.isPending ||
       statusMutation.isPending ||
-      isFetching;
+      isFetching || houses.isFetching;
 
   const handleAdd = () => {
     setEditingId(null);
-    setFormData(emptyForm);
+    setFormData({ ...emptyForm, nhaTroId: nhaTroId || houses.data?.[0]?.id || "" });
     setShowForm(true);
   };
 
   const handleEdit = (phong) => {
     setEditingId(phong.id);
     setFormData({
+      nhaTroId: phong.nhaTroId,
       soPhong: phong.soPhong,
       dienTich: phong.dienTich,
       giaThue: phong.giaThue,
@@ -164,7 +180,9 @@ function PhongPage() {
     event.preventDefault();
     if (isBusy) return;
 
+    if (!formData.nhaTroId) { alert("Hãy chọn nhà trọ"); return; }
     const data = {
+      nhaTroId: Number(formData.nhaTroId),
       soPhong: formData.soPhong.trim(),
       dienTich: Number(formData.dienTich),
       // Gửi chuỗi để không làm mất độ chính xác tiền qua Number.
@@ -213,6 +231,7 @@ function PhongPage() {
     setKeyword("");
     setTrangThai("");
     setSort("id:asc");
+    setNhaTroId("");
     setPage(0);
   };
 
@@ -227,17 +246,28 @@ function PhongPage() {
           <button
               type="button"
               onClick={handleAdd}
-              disabled={isBusy}
+              disabled={isBusy || houses.isError || !houses.data?.length}
               className="rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
           >
             + Thêm phòng
           </button>
         </div>
 
+        {houses.isError && <p className="mb-3 text-red-600">
+          Không tải được nhà trọ. <button onClick={() => houses.refetch()}>Thử lại</button>
+        </p>}
+        {houses.isSuccess && houses.data.length === 0 &&
+          <p className="mb-3">Hãy tạo nhà trọ trong mục Tài khoản &amp; Nhà trọ trước.</p>}
         <form
             onSubmit={handleSearch}
             className="mb-4 flex flex-wrap gap-2"
         >
+          <select aria-label="Lọc nhà trọ" value={nhaTroId} className={controlClass}
+              disabled={isBusy || houses.isError} onChange={(e) => { setNhaTroId(e.target.value); setPage(0); }}>
+            <option value="">Tất cả nhà trọ</option>
+            {(houses.data ?? []).map((house) =>
+              <option key={house.id} value={house.id}>{house.tenNhaTro} · #{house.id}</option>)}
+          </select>
           <input
               aria-label="Tìm số phòng"
               value={searchInput}
@@ -303,7 +333,8 @@ function PhongPage() {
             <PhongForm
                 formData={formData}
                 editingId={editingId}
-                isSaving={isSaving || isFetching}
+                isSaving={isBusy}
+                nhaTros={houses.data ?? []}
                 onChange={handleChange}
                 onSubmit={handleSubmit}
                 onCancel={resetForm}

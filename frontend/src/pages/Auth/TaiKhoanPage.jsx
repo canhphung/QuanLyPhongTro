@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMe, login, logout, register } from "../../api/authApi";
 import { getNhaTroPage, saveNhaTro, deleteNhaTro } from "../../api/nhaTroApi";
@@ -87,7 +88,11 @@ function TaiKhoanPage() {
 
   const deleteMutation = useMutation({
     mutationFn: deleteNhaTro,
-    onSuccess: async () => {
+    onSuccess: async (_, deletedId) => {
+      if (editingId === deletedId) {
+        setEditingId(null);
+        setHouseForm({ tenNhaTro: "", diaChi: "" });
+      }
       setNotice("Đã xóa nhà trọ.");
       await refreshHouses();
     },
@@ -162,6 +167,11 @@ function TaiKhoanPage() {
             <button className={button} disabled={busy}
               onClick={() => logoutMutation.mutate()}>Đăng xuất</button>
           </div>
+          {isOwner && <nav aria-label="Quản lý" className="mb-5 flex flex-wrap gap-4 text-blue-600">
+            <Link to="/phong">Phòng</Link>
+            <Link to="/nguoi-thue">Người thuê</Link>
+            <Link to="/dich-vu">Dịch vụ</Link>
+          </nav>}
           {!isOwner ? <p>Tài khoản người thuê đã đăng nhập. Cổng yêu cầu và hóa đơn sẽ nối ở bước tiếp theo.</p> : <>
             <form className="mb-5 grid gap-3 rounded bg-white p-5 shadow"
               onSubmit={(event) => {

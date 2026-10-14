@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   useMutation,
@@ -9,13 +9,15 @@ import {
 import {
   createNguoiThue,
   deleteNguoiThue,
-  getAllNguoiThue,
-  searchNguoiThue,
+  getNguoiThuePage,
   updateNguoiThue,
 } from "../../api/nguoiThueApi";
 
 import NguoiThueForm from "./components/NguoiThueForm";
 import NguoiThueTable from "./components/NguoiThueTable";
+
+import useAccount from "../../hooks/useAccount";
+import Pagination from "../../components/common/Pagination";
 
 const emptyForm = {
   hoTen: "",
@@ -27,6 +29,9 @@ const emptyForm = {
 
 function NguoiThuePage() {
   const queryClient = useQueryClient();
+  const { data: account } = useAccount();
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(10);
 
   const [showForm, setShowForm] = useState(false);
 
@@ -44,22 +49,20 @@ function NguoiThuePage() {
   // GET danh sách / tìm kiếm người thuê
   // ==========================================
 
-  const {
-    data: nguoiThues = [],
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: ["nguoi-thue", searchKeyword],
-
-    queryFn: () => {
-      if (searchKeyword) {
-        return searchNguoiThue(searchKeyword);
-      }
-
-      return getAllNguoiThue();
-    },
+  const params = { page, size, keyword: searchKeyword || undefined };
+  const { data: result, isLoading, isFetching, isError, refetch } = useQuery({
+    queryKey: ["nguoi-thue", account?.id, "phan-trang", params],
+    queryFn: ({ signal }) => getNguoiThuePage(params, signal),
+    enabled: Boolean(account),
   });
+  const nguoiThues = result?.content ?? [];
 
+  useEffect(() => {
+    if (result && !isFetching && !isError) {
+      const last = Math.max(0, result.totalPages - 1);
+      if (page > last) setPage(last);
+    }
+  }, [result, isFetching, isError, page]);
   // ==========================================
   // Reset form
   // ==========================================
@@ -160,8 +163,9 @@ function NguoiThuePage() {
   const deleteMutation = useMutation({
     mutationFn: deleteNguoiThue,
 
-    onSuccess: () => {
+    onSuccess: (_, deletedId) => {
       refreshNguoiThueList();
+      if (editingId === deletedId) resetForm();
     },
 
     onError: (error) => {
@@ -179,6 +183,7 @@ function NguoiThuePage() {
   // ==========================================
 
   const handleAdd = () => {
+    if (isProcessing) return;
     setEditingId(null);
     setFormData(emptyForm);
     setShowForm(true);
@@ -189,6 +194,7 @@ function NguoiThuePage() {
   // ==========================================
 
   const handleEdit = (nguoiThue) => {
+    if (isProcessing) return;
     setEditingId(nguoiThue.id);
 
     setFormData({
@@ -222,6 +228,7 @@ function NguoiThuePage() {
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    if (isProcessing) return;
 
     const data = {
       hoTen: formData.hoTen.trim(),
@@ -255,6 +262,7 @@ function NguoiThuePage() {
   // ==========================================
 
   const handleDelete = (nguoiThue) => {
+    if (isProcessing) return;
     const confirmDelete = window.confirm(
         `Bạn có chắc chắn muốn xóa người thuê "${nguoiThue.hoTen}"?`
     );
@@ -272,6 +280,7 @@ function NguoiThuePage() {
     event.preventDefault();
 
     setSearchKeyword(searchInput.trim());
+    setPage(0);
   };
 
   // ==========================================
@@ -281,11 +290,13 @@ function NguoiThuePage() {
   const handleClearSearch = () => {
     setSearchInput("");
     setSearchKeyword("");
+    setPage(0);
   };
 
   const isSaving =
       createMutation.isPending ||
       updateMutation.isPending;
+  const isProcessing = isSaving || deleteMutation.isPending || isFetching;
 
   // ==========================================
   // Loading
@@ -301,9 +312,9 @@ function NguoiThuePage() {
 
   if (isError) {
     return (
-        <p className="text-red-500">
-          Không thể tải danh sách người thuê
-        </p>
+        <div><p className="text-red-500">Không thể tải danh sách người thuê</p>
+          <button onClick={() => refetch()} className="text-blue-600">Thử lại</button>
+        </div>
     );
   }
 
@@ -318,6 +329,7 @@ function NguoiThuePage() {
 
           <button
               onClick={handleAdd}
+              disabled={isProcessing}
               className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
           >
             + Thêm người thuê
@@ -364,7 +376,7 @@ function NguoiThuePage() {
             <NguoiThueForm
                 formData={formData}
                 editingId={editingId}
-                isSaving={isSaving}
+                isSaving={isProcessing}
                 onChange={handleChange}
                 onSubmit={handleSubmit}
                 onCancel={resetForm}
@@ -377,8 +389,13 @@ function NguoiThuePage() {
             nguoiThues={nguoiThues}
             onEdit={handleEdit}
             onDelete={handleDelete}
-            isDeleting={deleteMutation.isPending}
+            isDeleting={isProcessing}
         />
+      <Pagination page={page} size={size}
+        totalElements={result?.totalElements ?? 0} totalPages={result?.totalPages ?? 0}
+        disabled={isProcessing} onPageChange={setPage}
+        onSizeChange={(next) => { setSize(next); setPage(0); }} />
+
       </div>
   );
 }

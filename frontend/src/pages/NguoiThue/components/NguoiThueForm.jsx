@@ -17,6 +17,7 @@ function NguoiThueForm({
               : "Thêm người thuê"}
         </h2>
 
+        <fieldset disabled={isSaving}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {/* Họ tên */}
           <div>
@@ -125,6 +126,7 @@ function NguoiThueForm({
             Hủy
           </button>
         </div>
+        </fieldset>
       </form>
   );
 }

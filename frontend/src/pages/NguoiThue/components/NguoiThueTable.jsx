@@ -72,6 +72,7 @@ function NguoiThueTable({
                 <td className="whitespace-nowrap px-4 py-3">
                   <button
                       onClick={() => onEdit(nguoiThue)}
+                      disabled={isDeleting}
                       className="mr-3 text-blue-600 hover:underline"
                   >
                     Sửa

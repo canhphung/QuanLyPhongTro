@@ -42,6 +42,7 @@ function PhongTable({
           <thead className="bg-gray-100">
           <tr>
             <th className="px-4 py-3 text-left">ID</th>
+            <th className="px-4 py-3 text-left">Nhà trọ</th>
             <th className="px-4 py-3 text-left">Số phòng</th>
             <th className="px-4 py-3 text-left">Diện tích</th>
             <th className="px-4 py-3 text-left">Giá thuê</th>
@@ -54,6 +55,7 @@ function PhongTable({
           {phongs.map((phong) => (
               <tr key={phong.id} className="border-t hover:bg-gray-50">
                 <td className="px-4 py-3">{phong.id}</td>
+                <td className="px-4 py-3">{phong.tenNhaTro} · #{phong.nhaTroId}</td>
                 <td className="px-4 py-3 font-medium">{phong.soPhong}</td>
                 <td className="px-4 py-3">{phong.dienTich} m²</td>
                 <td className="px-4 py-3">
@@ -104,7 +106,7 @@ function PhongTable({
 
           {phongs.length === 0 && (
               <tr>
-                <td colSpan="6" className="px-4 py-6 text-center text-gray-500">
+                <td colSpan="7" className="px-4 py-6 text-center text-gray-500">
                   Chưa có phòng nào
                 </td>
               </tr>

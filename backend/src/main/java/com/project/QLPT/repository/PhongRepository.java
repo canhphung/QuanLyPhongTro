@@ -17,7 +17,7 @@ import com.project.QLPT.enums.TrangThaiPhong;
  * và bổ sung các truy vấn phục vụ nghiệp vụ quản lý phòng.</p>
  */
 public interface PhongRepository
-    extends JpaRepository<Phong, Integer> {
+    extends JpaRepository<Phong, Integer>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Phong> {
 
   /**
    * Kiểm tra xem số phòng đã tồn tại trong hệ thống hay chưa.
@@ -75,4 +75,27 @@ public interface PhongRepository
       Pageable pageable
   );
   boolean existsByNhaTro_Id(Integer nhaTroId);
+
+    java.util.Optional<Phong> findByIdAndNhaTro_ChuTro_Id(Integer id, Integer ownerId);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select e from Phong e where e.id = :id and e.nhaTro.chuTro.id = :ownerId")
+    java.util.Optional<Phong> findOwnedForUpdate(
+        @org.springframework.data.repository.query.Param("id") Integer id,
+        @org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
+
+    boolean existsByNhaTro_IdAndSoPhong(Integer nhaTroId, String soPhong);
+    boolean existsByNhaTro_IdAndSoPhongAndIdNot(Integer nhaTroId, String soPhong, Integer id);
+
+    @Override
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "nhaTro")
+    org.springframework.data.domain.Page<Phong> findAll(
+        org.springframework.data.jpa.domain.Specification<Phong> specification,
+        org.springframework.data.domain.Pageable pageable);
+
+    @Override
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "nhaTro")
+    java.util.List<Phong> findAll(
+        org.springframework.data.jpa.domain.Specification<Phong> specification,
+        org.springframework.data.domain.Sort sort);
 }
