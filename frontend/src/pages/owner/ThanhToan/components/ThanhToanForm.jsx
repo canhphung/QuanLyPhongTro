@@ -1,4 +1,4 @@
-import { formatMoney } from "../../../utils/decimalValues";
+import { formatMoney } from "../../../../utils/decimalValues.js";
 export default function ThanhToanForm({ form, setForm, editingId, invoices, invoice, limit, canSave, disabled, onSubmit, onCancel }) {
   const control = "w-full rounded border px-3 py-2";
   return <form onSubmit={onSubmit} className="mb-5 rounded bg-white p-4 shadow">

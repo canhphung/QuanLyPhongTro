@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { managementNavigation } from "../../utils/managementNavigation";
+import { managementNavigation } from "../../../utils/managementNavigation.js";
 export default function Sidebar() {
   return <aside className="w-full shrink-0 bg-slate-900 text-white md:w-64">
     <div className="p-4 text-xl font-bold md:p-6">Quản Lý Phòng Trọ</div>

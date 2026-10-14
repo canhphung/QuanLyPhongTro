@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getAllNguoiThue } from "../../../api/nguoiThueApi";
-import { getThanhVien, saveThanhVien, deleteThanhVien } from "../../../api/thanhVienApi";
-import getErrorMessage from "../../../utils/getErrorMessage";
+import { getAllNguoiThue } from "../../../../api/nguoiThueApi.js";
+import { getThanhVien, saveThanhVien, deleteThanhVien } from "../../../../api/thanhVienApi.js";
+import getErrorMessage from "../../../../utils/getErrorMessage.js";
 
 export default function ThanhVienPanel({ contract, accountId, disabled, onBusyChange }) {
   const client = useQueryClient();

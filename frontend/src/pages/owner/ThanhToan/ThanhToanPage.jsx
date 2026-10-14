@@ -1,16 +1,16 @@
 import { Link, useSearchParams } from "react-router-dom";
-import { positiveIdParam } from "../../utils/managementNavigation";
+import { positiveIdParam } from "../../../utils/managementNavigation.js";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import useAccount from "../../hooks/useAccount";
-import { getThanhToanPage, createThanhToan, updateThanhToan, deleteThanhToan } from "../../api/thanhToanApi";
-import { getAllHoaDon, getHoaDonById } from "../../api/hoaDonApi";
-import { decimalUnits, formatMoney } from "../../utils/decimalValues";
-import { receiptLimit, validReceipt, receiptAmount } from "../../utils/paymentValues";
-import getErrorMessage from "../../utils/getErrorMessage";
-import Pagination from "../../components/common/Pagination";
-import ThanhToanForm from "./components/ThanhToanForm";
-import ThanhToanTable from "./components/ThanhToanTable";
+import useAccount from "../../../hooks/useAccount.js";
+import { getThanhToanPage, createThanhToan, updateThanhToan, deleteThanhToan } from "../../../api/thanhToanApi.js";
+import { getAllHoaDon, getHoaDonById } from "../../../api/hoaDonApi.js";
+import { decimalUnits, formatMoney } from "../../../utils/decimalValues.js";
+import { receiptLimit, validReceipt, receiptAmount } from "../../../utils/paymentValues.js";
+import getErrorMessage from "../../../utils/getErrorMessage.js";
+import Pagination from "../../../components/common/Pagination.jsx";
+import ThanhToanForm from "./components/ThanhToanForm.jsx";
+import ThanhToanTable from "./components/ThanhToanTable.jsx";
 const empty = { hoaDonId: "", soTien: "", phuongThuc: "TIEN_MAT", maGiaoDich: "", ngayThanhToan: "" };
 
 export default function ThanhToanPage() {

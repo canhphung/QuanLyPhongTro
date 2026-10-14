@@ -1,4 +1,4 @@
-import { formatMoney } from "../../../utils/decimalValues";
+import { formatMoney } from "../../../../utils/decimalValues.js";
 function DichVuTable({
   dichVus = [],
   onEdit,

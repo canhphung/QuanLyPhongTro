@@ -1,5 +1,5 @@
-import { formatMoney } from "../../../utils/decimalValues";
-import { receiptTime } from "../../../utils/paymentValues";
+import { formatMoney } from "../../../../utils/decimalValues.js";
+import { receiptTime } from "../../../../utils/paymentValues.js";
 const methods = { TIEN_MAT: "Tiền mặt", CHUYEN_KHOAN: "Chuyển khoản", VI_DIEN_TU: "Ví điện tử" };
 export default function ThanhToanTable({ rows, disabled, onEdit, onDelete }) {
   return <div className="overflow-x-auto rounded bg-white p-3 shadow">

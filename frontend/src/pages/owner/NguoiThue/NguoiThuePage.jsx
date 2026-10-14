@@ -1,4 +1,4 @@
-import getErrorMessage from "../../utils/getErrorMessage";
+import getErrorMessage from "../../../utils/getErrorMessage.js";
 import { useEffect, useState } from "react";
 
 import {
@@ -12,13 +12,13 @@ import {
   deleteNguoiThue,
   getNguoiThuePage,
   updateNguoiThue,
-} from "../../api/nguoiThueApi";
+} from "../../../api/nguoiThueApi.js";
 
-import NguoiThueForm from "./components/NguoiThueForm";
-import NguoiThueTable from "./components/NguoiThueTable";
+import NguoiThueForm from "./components/NguoiThueForm.jsx";
+import NguoiThueTable from "./components/NguoiThueTable.jsx";
 
-import useAccount from "../../hooks/useAccount";
-import Pagination from "../../components/common/Pagination";
+import useAccount from "../../../hooks/useAccount.js";
+import Pagination from "../../../components/common/Pagination.jsx";
 
 const emptyForm = {
   hoTen: "",

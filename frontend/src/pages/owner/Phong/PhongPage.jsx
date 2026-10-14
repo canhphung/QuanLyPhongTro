@@ -1,4 +1,4 @@
-import { validDecimal, normalizeDecimal } from "../../utils/decimalValues";
+import { validDecimal, normalizeDecimal } from "../../../utils/decimalValues.js";
 import { useEffect, useState } from "react";
 import {
   useMutation,
@@ -12,14 +12,14 @@ import {
   getPhongPage,
   updatePhong,
   updateTrangThaiPhong,
-} from "../../api/phongApi";
+} from "../../../api/phongApi.js";
 
-import getErrorMessage from "../../utils/getErrorMessage";
-import PhongForm from "./components/PhongForm";
-import PhongTable from "./components/PhongTable";
-import Pagination from "../../components/common/Pagination";
-import useAccount from "../../hooks/useAccount";
-import { getNhaTroOptions } from "../../api/nhaTroApi";
+import getErrorMessage from "../../../utils/getErrorMessage.js";
+import PhongForm from "./components/PhongForm.jsx";
+import PhongTable from "./components/PhongTable.jsx";
+import Pagination from "../../../components/common/Pagination.jsx";
+import useAccount from "../../../hooks/useAccount.js";
+import { getNhaTroOptions } from "../../../api/nhaTroApi.js";
 
 const emptyForm = {
   nhaTroId: "",

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import useAccount from "../../hooks/useAccount";
-import { getDashboard } from "../../api/dashboardApi";
-import { formatMoney } from "../../utils/decimalValues";
-import getErrorMessage from "../../utils/getErrorMessage";
+import useAccount from "../../../hooks/useAccount.js";
+import { getDashboard } from "../../../api/dashboardApi.js";
+import { formatMoney } from "../../../utils/decimalValues.js";
+import getErrorMessage from "../../../utils/getErrorMessage.js";
 const cards = [
   ["tongPhong", "Tổng phòng"], ["phongTrong", "Phòng trống"], ["phongDangThue", "Phòng đang thuê"],
   ["phongBaoTri", "Phòng bảo trì"], ["phongNgungHoatDong", "Phòng ngừng hoạt động"],

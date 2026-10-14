@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getAllDichVu } from "../../../api/dichVuApi";
-import { saveChiTiet, deleteChiTiet } from "../../../api/chiTietHoaDonApi";
-import { formatMoney, formatDecimal, normalizeDecimal, validDecimal, decimalUnits } from "../../../utils/decimalValues";
-import getErrorMessage from "../../../utils/getErrorMessage";
+import { getAllDichVu } from "../../../../api/dichVuApi.js";
+import { saveChiTiet, deleteChiTiet } from "../../../../api/chiTietHoaDonApi.js";
+import { formatMoney, formatDecimal, normalizeDecimal, validDecimal, decimalUnits } from "../../../../utils/decimalValues.js";
+import getErrorMessage from "../../../../utils/getErrorMessage.js";
 
 export default function ChiTietPanel({ invoice, accountId, disabled, onBusyChange }) {
   const client = useQueryClient();

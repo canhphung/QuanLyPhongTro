@@ -4,17 +4,17 @@ import RequireAdmin from "./RequireAdmin";
 import AdminLayout from "../components/layout/admin/AdminLayout";
 import { Navigate, Routes, Route } from "react-router-dom";
 import HomeRedirect from "./HomeRedirect";
-import TaiKhoanPage from "../pages/Auth/TaiKhoanPage";
-import MainLayout from "../components/layout/MainLayout";
+import TaiKhoanPage from "../pages/auth/TaiKhoanPage";
+import MainLayout from "../components/layout/owner/MainLayout.jsx";
 import RequireOwner from "./RequireOwner";
-import PhongPage from "../pages/Phong/PhongPage";
-import NguoiThuePage from "../pages/NguoiThue/NguoiThuePage";
-import HoaDonPage from "../pages/HoaDon/HoaDonPage";
-import HopDongPage from "../pages/HopDong/HopDongPage";
-import DichVuPage from "../pages/DichVu/DichVuPage";
+import PhongPage from "../pages/owner/Phong/PhongPage";
+import NguoiThuePage from "../pages/owner/NguoiThue/NguoiThuePage";
+import HoaDonPage from "../pages/owner/HoaDon/HoaDonPage";
+import HopDongPage from "../pages/owner/HopDong/HopDongPage";
+import DichVuPage from "../pages/owner/DichVu/DichVuPage";
 
-import ThanhToanPage from "../pages/ThanhToan/ThanhToanPage";
-import DashboardPage from "../pages/Dashboard/DashboardPage";
+import ThanhToanPage from "../pages/owner/ThanhToan/ThanhToanPage";
+import DashboardPage from "../pages/owner/Dashboard/DashboardPage";
 
 export default function AppRoutes() {
   return (

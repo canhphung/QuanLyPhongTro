@@ -1,5 +1,5 @@
-import getErrorMessage from "../../utils/getErrorMessage";
-import { validDecimal, normalizeDecimal } from "../../utils/decimalValues";
+import getErrorMessage from "../../../utils/getErrorMessage.js";
+import { validDecimal, normalizeDecimal } from "../../../utils/decimalValues.js";
 import { useEffect, useState } from "react";
 
 import {
@@ -13,13 +13,13 @@ import {
   deleteDichVu,
   getDichVuPage,
   updateDichVu,
-} from "../../api/dichVuApi";
+} from "../../../api/dichVuApi.js";
 
-import DichVuForm from "./components/DichVuForm";
-import DichVuTable from "./components/DichVuTable";
+import DichVuForm from "./components/DichVuForm.jsx";
+import DichVuTable from "./components/DichVuTable.jsx";
 
-import useAccount from "../../hooks/useAccount";
-import Pagination from "../../components/common/Pagination";
+import useAccount from "../../../hooks/useAccount.js";
+import Pagination from "../../../components/common/Pagination.jsx";
 
 const emptyForm = {
   tenDichVu: "",

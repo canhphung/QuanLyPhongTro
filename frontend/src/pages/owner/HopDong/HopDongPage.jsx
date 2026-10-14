@@ -1,16 +1,16 @@
 import { useNavigate } from "react-router-dom";
-import { normalizeDecimal, validDecimal } from "../../utils/decimalValues";
+import { normalizeDecimal, validDecimal } from "../../../utils/decimalValues.js";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createHopDong, getHopDongPage, getHopDongById,
-  updateHopDong, ketThucHopDong, huyHopDong } from "../../api/hopDongApi";
-import { getAllPhong } from "../../api/phongApi";
-import useAccount from "../../hooks/useAccount";
-import getErrorMessage from "../../utils/getErrorMessage";
-import Pagination from "../../components/common/Pagination";
-import HopDongForm from "./components/HopDongForm";
-import HopDongTable from "./components/HopDongTable";
-import ThanhVienPanel from "./components/ThanhVienPanel";
+  updateHopDong, ketThucHopDong, huyHopDong } from "../../../api/hopDongApi.js";
+import { getAllPhong } from "../../../api/phongApi.js";
+import useAccount from "../../../hooks/useAccount.js";
+import getErrorMessage from "../../../utils/getErrorMessage.js";
+import Pagination from "../../../components/common/Pagination.jsx";
+import HopDongForm from "./components/HopDongForm.jsx";
+import HopDongTable from "./components/HopDongTable.jsx";
+import ThanhVienPanel from "./components/ThanhVienPanel.jsx";
 
 const emptyForm = { phongId: "", ngayBatDau: "", ngayKetThuc: "",
   giaThueThoaThuan: "", tienCoc: "0" };

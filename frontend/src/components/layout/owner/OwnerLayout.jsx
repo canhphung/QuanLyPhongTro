@@ -1,8 +1,8 @@
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
-import Header from "./Header";
+import Header from "../Header";
 
-function MainLayout() {
+export default function OwnerLayout() {
   return (
       <div className="flex min-h-screen flex-col bg-gray-100 md:flex-row">
         <Sidebar />
@@ -17,5 +17,3 @@ function MainLayout() {
       </div>
   );
 }
-
-export default MainLayout;

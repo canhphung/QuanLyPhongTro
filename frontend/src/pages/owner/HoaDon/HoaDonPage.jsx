@@ -1,16 +1,16 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { positiveIdParam } from "../../utils/managementNavigation";
+import { positiveIdParam } from "../../../utils/managementNavigation.js";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getHoaDonPage, getHoaDonById, createHoaDon, updateHoaDon, deleteHoaDon } from "../../api/hoaDonApi";
-import { getAllHopDong } from "../../api/hopDongApi";
-import useAccount from "../../hooks/useAccount";
-import getErrorMessage from "../../utils/getErrorMessage";
-import { normalizeDecimal, validDecimal } from "../../utils/decimalValues";
-import Pagination from "../../components/common/Pagination";
-import HoaDonForm from "./components/HoaDonForm";
-import HoaDonTable from "./components/HoaDonTable";
-import ChiTietPanel from "./components/ChiTietPanel";
+import { getHoaDonPage, getHoaDonById, createHoaDon, updateHoaDon, deleteHoaDon } from "../../../api/hoaDonApi.js";
+import { getAllHopDong } from "../../../api/hopDongApi.js";
+import useAccount from "../../../hooks/useAccount.js";
+import getErrorMessage from "../../../utils/getErrorMessage.js";
+import { normalizeDecimal, validDecimal } from "../../../utils/decimalValues.js";
+import Pagination from "../../../components/common/Pagination.jsx";
+import HoaDonForm from "./components/HoaDonForm.jsx";
+import HoaDonTable from "./components/HoaDonTable.jsx";
+import ChiTietPanel from "./components/ChiTietPanel.jsx";
 
 const emptyForm = { hopDongId: "", kyThanhToan: "", ngayLap: "", hanThanhToan: "", tienPhong: "" };
 
