@@ -1,16 +1,35 @@
-# React + Vite
+# Frontend QuanLyPhongTro
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React/Vite/Tailwind, React Query, Router và Axios. Giao diện quản lý cho chủ trọ;
+API dùng cookie session + CSRF. Cần backend và database chạy riêng.
 
-Currently, two official plugins are available:
+Trong thư mục frontend:
+npm ci
+copy .env.example .env
+Đặt VITE_API_URL=http://localhost:8080; cùng hostname với frontend.
+npm run dev
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Kiểm tra:
+npm run build
+npm run lint
+npm test
 
-## React Compiler
+Luồng: Nhà trọ → Phòng/Người thuê → Hợp đồng/Thành viên →
+Hóa đơn/Dòng dịch vụ → Thanh toán → Dashboard.
+Các màn quản lý chỉ mở cho CHU_TRO; /tai-khoan dùng để đăng nhập/đăng ký/quản lý nhà.
+Header có logout; cache quản lý được xóa khi đổi phiên/tài khoản.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Hợp đồng → /hoa-don?hopDongId=...
+Hóa đơn → /thanh-toan?hoaDonId=...
+Chi tiết hóa đơn: /hoa-don?hopDongId=...&hoaDonId=...
+Tháng trên Dashboard chỉ lọc thực thu; công nợ là công nợ hiện tại mọi kỳ.
 
-## Expanding the Oxlint configuration
+Tiền API trả chuỗi decimal, hiển thị bằng utils/decimalValues (BigInt);
+không Number tiền, không tự tính tổng hóa đơn ở frontend.
+Thu tiền là ghi sổ thủ công, chưa kết nối ngân hàng/ví; kiểm tra lịch sử trước
+gửi lại yêu cầu thất bại vì chưa có idempotency.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+scripts/check-integration-helpers.mjs chạy helper với React Query thật.
+scripts/check-browser.cjs kiểm tra UI bằng Playwright/API mock; cần cài Playwright
+tạm và chạy Vite. Chi tiết ở README_AP_DUNG_FRONTEND.md của gói bước 5.
+Build/helper/UI mock không thay kiểm thử backend/DB thật.

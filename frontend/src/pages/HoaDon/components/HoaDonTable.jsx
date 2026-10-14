@@ -30,6 +30,7 @@ function HoaDonTable({
   hoaDons = [],
   onEdit,
   onDetail,
+  onPayments,
   onDelete,
   isDeleting,
 }) {
@@ -90,6 +91,8 @@ function HoaDonTable({
                 </td>
 
                 <td className="whitespace-nowrap px-4 py-3">
+                  <button onClick={() => onPayments(hoaDon)} disabled={isDeleting}
+                    className="mr-3 text-blue-600 disabled:opacity-50">Thu tiền / Lịch sử</button>
                   <button onClick={() => onDetail(hoaDon)} disabled={isDeleting}
                     className="mr-3 text-blue-600 disabled:opacity-50">Chi tiết / Dịch vụ</button>
                   <button
@@ -107,7 +110,7 @@ function HoaDonTable({
                       onClick={() => onDelete(hoaDon)}
                       disabled={
                         isDeleting ||
-                        hoaDon.trangThai !== "CHUA_THANH_TOAN"
+                        !hoaDon.coTheChinhSua
                       }
                       className="text-red-600 hover:underline disabled:opacity-50"
                   >

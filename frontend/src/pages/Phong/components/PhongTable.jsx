@@ -1,3 +1,4 @@
+import { formatMoney } from "../../../utils/decimalValues";
 function getStatusClass(trangThai) {
   switch (trangThai) {
     case "TRONG":
@@ -59,7 +60,7 @@ function PhongTable({
                 <td className="px-4 py-3 font-medium">{phong.soPhong}</td>
                 <td className="px-4 py-3">{phong.dienTich} m²</td>
                 <td className="px-4 py-3">
-                  {Number(phong.giaThue).toLocaleString("vi-VN")} đ
+                  {formatMoney(phong.giaThue)}
                 </td>
                 <td className="px-4 py-3">
                 <span

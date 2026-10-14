@@ -1,7 +1,7 @@
 import sessionClient from "./sessionClient";
 
-export const getNhaTroPage = async (page) =>
-  (await sessionClient.get("/api/nha-tro", { params: { page, size: 10 } })).data;
+export const getNhaTroPage = async (page, size = 10, signal) =>
+  (await sessionClient.get("/api/nha-tro", { params: { page, size }, signal })).data;
 
 export const saveNhaTro = async ({ id, data }) =>
   (id == null

@@ -1,3 +1,4 @@
+import { formatMoney } from "../../../utils/decimalValues";
 function DichVuTable({
   dichVus = [],
   onEdit,
@@ -31,7 +32,7 @@ function DichVuTable({
               <td className="px-4 py-3">{item.donViTinh}</td>
 
               <td className="px-4 py-3">
-                {Number(item.donGiaHienTai).toLocaleString("vi-VN")} đ
+                {formatMoney(item.donGiaHienTai)}
               </td>
 
               <td className="px-4 py-3">

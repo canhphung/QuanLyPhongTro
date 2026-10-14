@@ -1,3 +1,4 @@
+import { formatMoney } from "../../../utils/decimalValues";
 function getStatusClass(trangThai) {
   switch (trangThai) {
     case "DANG_HIEU_LUC":
@@ -32,6 +33,7 @@ function HopDongTable({
   hopDongs = [],
   onEdit,
   onMembers,
+  onInvoices,
   onKetThuc,
   onHuy,
   isProcessing,
@@ -71,11 +73,11 @@ function HopDongTable({
                 </td>
 
                 <td className="px-4 py-3">
-                  {Number(hopDong.giaThueThoaThuan).toLocaleString("vi-VN")} đ
+                  {formatMoney(hopDong.giaThueThoaThuan)}
                 </td>
 
                 <td className="px-4 py-3">
-                  {Number(hopDong.tienCoc).toLocaleString("vi-VN")} đ
+                  {formatMoney(hopDong.tienCoc)}
                 </td>
 
                 <td className="px-4 py-3">
@@ -89,6 +91,8 @@ function HopDongTable({
                 </td>
 
                 <td className="whitespace-nowrap px-4 py-3">
+                  <button onClick={() => onInvoices(hopDong)} disabled={isProcessing}
+                    className="mr-3 text-blue-600 disabled:opacity-50">Hóa đơn</button>
                   <button onClick={() => onMembers(hopDong)} disabled={isProcessing}
                     className="mr-3 text-blue-600 disabled:opacity-50">Thành viên / Chi tiết</button>
                   <button

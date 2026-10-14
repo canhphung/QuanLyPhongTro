@@ -1,3 +1,5 @@
+import getErrorMessage from "../../utils/getErrorMessage";
+import { validDecimal, normalizeDecimal } from "../../utils/decimalValues";
 import { useEffect, useState } from "react";
 
 import {
@@ -69,29 +71,8 @@ function DichVuPage() {
   // Refresh danh sách.
   const refreshDichVuList = () => {
     return queryClient.invalidateQueries({
-      queryKey: ["dich-vu"],
+      queryKey: ["dich-vu", account?.id],
     });
-  };
-
-  // Đọc lỗi backend, giống cách HoaDonPage đang làm.
-  const getErrorMessage = (error, defaultMessage) => {
-    const data = error.response?.data;
-
-    if (typeof data?.message === "string") {
-      return data.message;
-    }
-
-    if (data && typeof data === "object") {
-      const messages = Object.values(data).filter(
-        (value) => typeof value === "string"
-      );
-
-      if (messages.length > 0) {
-        return messages.join("\n");
-      }
-    }
-
-    return defaultMessage;
   };
 
   // CREATE.
@@ -180,26 +161,21 @@ function DichVuPage() {
 
     const tenDichVu = formData.tenDichVu.trim();
     const donViTinh = formData.donViTinh.trim();
-    const donGia = Number(formData.donGiaHienTai);
+    const donGia = String(formData.donGiaHienTai).trim();
 
     if (!tenDichVu || !donViTinh) {
       alert("Tên dịch vụ và đơn vị tính không được để trống");
       return;
     }
 
-    if (
-      String(formData.donGiaHienTai).trim() === "" ||
-      !Number.isSafeInteger(donGia) ||
-      donGia < 0
-    ) {
-      alert("Đơn giá phải là số nguyên không âm hợp lệ");
-      return;
+    if (!validDecimal(donGia, 19, 0)) {
+      alert("Đơn giá nguyên không âm, tối đa 19 chữ số"); return;
     }
 
     const data = {
       tenDichVu,
       donViTinh,
-      donGiaHienTai: donGia,
+      donGiaHienTai: normalizeDecimal(donGia),
       tinhTheoChiSo: formData.tinhTheoChiSo,
       dangHoatDong: formData.dangHoatDong,
     };

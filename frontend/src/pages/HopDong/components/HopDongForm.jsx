@@ -35,7 +35,7 @@ function HopDongForm({
             </label>
 
             <select
-                name="phongId"
+                aria-label="Phòng" name="phongId"
                 value={formData.phongId}
                 onChange={onChange}
                 disabled={editingId !== null}

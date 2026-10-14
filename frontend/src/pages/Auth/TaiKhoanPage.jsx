@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getMe, login, logout, register } from "../../api/authApi";
+import { login, register } from "../../api/authApi";
 import { getNhaTroPage, saveNhaTro, deleteNhaTro } from "../../api/nhaTroApi";
-import Pagination from "../../components/auth/Pagination";
+import Pagination from "../../components/common/Pagination";
+import useAccount from "../../hooks/useAccount";
+import useLogout from "../../hooks/useLogout";
+import { setSessionAccount } from "../../utils/sessionState";
+import { managementNavigation, isOwner as accountIsOwner, signedInDestination } from "../../utils/managementNavigation";
 import getErrorMessage from "../../utils/getErrorMessage";
 
 function TaiKhoanPage() {
   const client = useQueryClient();
+  const navigate = useNavigate(), location = useLocation();
   const [mode, setMode] = useState("login");
   const [notice, setNotice] = useState("");
   const [accountForm, setAccountForm] = useState({
@@ -16,16 +21,15 @@ function TaiKhoanPage() {
   const [houseForm, setHouseForm] = useState({ tenNhaTro: "", diaChi: "" });
   const [editingId, setEditingId] = useState(null);
   const [page, setPage] = useState(0);
+  const [size, setSize] = useState(10);
 
-  const meQuery = useQuery({
-    queryKey: ["auth", "me"], queryFn: getMe, retry: false,
-  });
+  const meQuery = useAccount();
   const me = meQuery.data;
-  const isOwner = me?.vaiTros.includes("CHU_TRO") ?? false;
+  const isOwner = accountIsOwner(me);
 
   const houses = useQuery({
-    queryKey: ["nha-tro", me?.id, page],
-    queryFn: () => getNhaTroPage(page),
+    queryKey: ["nha-tro", me?.id, "page", page, size],
+    queryFn: ({ signal }) => getNhaTroPage(page, size, signal),
     enabled: isOwner,
     retry: false,
   });
@@ -48,32 +52,20 @@ function TaiKhoanPage() {
         setMode("login");
         setNotice("Đăng ký thành công. Hãy đăng nhập.");
       } else {
-        await client.cancelQueries();
-        client.clear();
-        client.setQueryData(["auth", "me"], data);
+        await setSessionAccount(client, data);
         setPage(0);
         setNotice("");
+        navigate(signedInDestination(data, location.state?.from), { replace: true });
       }
     },
     onError: showError,
   });
 
-  const logoutMutation = useMutation({
-    mutationFn: logout,
-    onSuccess: async () => {
-      await client.cancelQueries();
-      client.clear();
-      client.setQueryData(["auth", "me"], null);
-      setHouseForm({ tenNhaTro: "", diaChi: "" });
-      setEditingId(null);
-      setPage(0);
-      setNotice("Đã đăng xuất.");
-    },
-    onError: showError,
-  });
+  const logoutMutation = useLogout();
 
   const refreshHouses = () =>
-    client.invalidateQueries({ queryKey: ["nha-tro", me?.id] });
+    Promise.all(["nha-tro", "phong", "hop-dong", "hoa-don", "thanh-toan"].map(
+      (key) => client.invalidateQueries({ queryKey: [key, me?.id] })));
 
   const saveMutation = useMutation({
     mutationFn: saveNhaTro,
@@ -115,6 +107,8 @@ function TaiKhoanPage() {
   return (
     <main className="mx-auto max-w-5xl p-6">
       <h1 className="mb-4 text-2xl font-bold">Tài khoản và nhà trọ</h1>
+      {logoutMutation.isError && <p role="alert" className="mb-4 text-red-600">{getErrorMessage(logoutMutation.error, "Không thể đăng xuất")}</p>}
+      {location.state?.from && !isOwner && <p className="mb-4">Mục quản lý cần tài khoản chủ trọ. Hãy đăng nhập bằng tài khoản phù hợp.</p>}
       {notice && <p role="status" className="mb-4 whitespace-pre-line">{notice}</p>}
 
       {!me ? (
@@ -168,19 +162,14 @@ function TaiKhoanPage() {
               onClick={() => logoutMutation.mutate()}>Đăng xuất</button>
           </div>
           {isOwner && <nav aria-label="Quản lý" className="mb-5 flex flex-wrap gap-4 text-blue-600">
-            <Link to="/phong">Phòng</Link>
-            <Link to="/nguoi-thue">Người thuê</Link>
-            <Link to="/dich-vu">Dịch vụ</Link>
-            <Link to="/hop-dong">Hợp đồng</Link>
-            <Link to="/hoa-don">Hóa đơn</Link>
-            <Link to="/thanh-toan">Thanh toán</Link>
-            <Link to="/dashboard">Dashboard</Link>
+            {managementNavigation.filter((item) => item.path !== "/tai-khoan").map((item) =>
+              <Link key={item.path} to={item.path}>{item.name}</Link>)}
           </nav>}
           {!isOwner ? <p>Tài khoản người thuê đã đăng nhập. Cổng yêu cầu và hóa đơn sẽ nối ở bước tiếp theo.</p> : <>
             <form className="mb-5 grid gap-3 rounded bg-white p-5 shadow"
               onSubmit={(event) => {
                 event.preventDefault();
-                if (!busy) saveMutation.mutate({ id: editingId, data: houseForm });
+                if (!busy && !houses.isFetching && !houses.isError) saveMutation.mutate({ id: editingId, data: houseForm });
               }}>
               <h2 className="font-semibold">{editingId == null ? "Thêm nhà trọ" : "Sửa nhà trọ"}</h2>
               <label>Tên nhà trọ
@@ -194,7 +183,7 @@ function TaiKhoanPage() {
                   onChange={(e) => setHouseForm({ ...houseForm, diaChi: e.target.value })} />
               </label>
               <div className="flex gap-2">
-                <button className={button} disabled={busy}>Lưu</button>
+                <button className={button} disabled={busy || houses.isFetching || houses.isError}>Lưu</button>
                 {editingId != null && <button type="button" className={control} disabled={busy}
                   onClick={() => { setEditingId(null); setHouseForm({ tenNhaTro: "", diaChi: "" }); }}>
                   Hủy sửa
@@ -223,8 +212,9 @@ function TaiKhoanPage() {
                 </table>
                 {houses.data.content.length === 0 && <p className="p-3">Chưa có nhà trọ.</p>}
               </div>
-              <Pagination page={page} totalPages={houses.data.totalPages}
-                onPageChange={setPage} disabled={busy || houses.isFetching} />
+              <Pagination page={page} size={size} totalElements={houses.data.totalElements}
+                totalPages={houses.data.totalPages} onPageChange={setPage}
+                onSizeChange={(next) => { setSize(next); setPage(0); }} disabled={busy || houses.isFetching} />
             </>}
           </>}
         </>

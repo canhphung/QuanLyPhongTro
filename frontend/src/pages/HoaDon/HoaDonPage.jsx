@@ -1,3 +1,5 @@
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { positiveIdParam } from "../../utils/managementNavigation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getHoaDonPage, getHoaDonById, createHoaDon, updateHoaDon, deleteHoaDon } from "../../api/hoaDonApi";
@@ -14,16 +16,30 @@ const emptyForm = { hopDongId: "", kyThanhToan: "", ngayLap: "", hanThanhToan: "
 
 export default function HoaDonPage() {
   const client = useQueryClient();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedParam = positiveIdParam(searchParams.get("hoaDonId"));
+  const selectedId = selectedParam ? Number(selectedParam) : null;
+  const contractId = positiveIdParam(searchParams.get("hopDongId"));
+  const setSelectedId = (id) => {
+    const next = new URLSearchParams(searchParams);
+    if (id == null) next.delete("hoaDonId"); else next.set("hoaDonId", String(id));
+    setSearchParams(next);
+  };
+  const setContractId = (id) => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("hoaDonId");
+    if (id) next.set("hopDongId", String(id)); else next.delete("hopDongId");
+    setSearchParams(next);
+  };
   const { data: account } = useAccount();
   const [form, setForm] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [selectedId, setSelectedId] = useState(null);
   const [lineBusy, setLineBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [input, setInput] = useState("");
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("");
-  const [contractId, setContractId] = useState("");
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(10);
   const params = { page, size, keyword: keyword || undefined, trangThai: status || undefined,
@@ -40,6 +56,9 @@ export default function HoaDonPage() {
       if (page > last) setPage(last);
     }
   }, [bills.data, bills.isFetching, bills.isError, page]);
+  useEffect(() => {
+    setPage(0); setLineBusy(false); setForm(null); setEditingId(null);
+  }, [contractId, selectedId]);
   const reset = () => { setForm(null); setEditingId(null); };
   const refresh = () => Promise.all(["hoa-don", "dashboard"].map(
     (key) => client.invalidateQueries({ queryKey: [key, account?.id] })));
@@ -66,7 +85,7 @@ export default function HoaDonPage() {
   };
   const submit = (e) => {
     e.preventDefault();
-    if (busy) return;
+    if (busy || contracts.isFetching || contracts.isError) return;
     const rent = String(form.tienPhong).trim();
     if (rent && !validDecimal(rent, 19, 0)) { setNotice("Tiền phòng nguyên không âm, tối đa 19 chữ số."); return; }
     save.mutate({ id: editingId, data: { ...form, hopDongId: Number(form.hopDongId),
@@ -76,7 +95,7 @@ export default function HoaDonPage() {
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
       <h1 className="text-2xl font-bold">Quản lý hóa đơn</h1>
       <button className={control} disabled={busy || contracts.isFetching || contracts.isError}
-        onClick={() => { setEditingId(null); setForm({ ...emptyForm }); setNotice(""); }}>Thêm hóa đơn</button>
+        onClick={() => { setEditingId(null); setForm({ ...emptyForm, hopDongId: contractId }); setNotice(""); }}>Thêm hóa đơn</button>
     </div>
     {notice && <p role="status" className="mb-3 whitespace-pre-line">{notice}</p>}
     <form className="mb-4 flex flex-wrap gap-2" onSubmit={(e) => {
@@ -101,14 +120,14 @@ export default function HoaDonPage() {
     {contracts.isError && <p className="text-red-600">Không tải được hợp đồng.
       <button onClick={() => contracts.refetch()}>Thử lại</button></p>}
     {form && <HoaDonForm formData={form} editingId={editingId} hopDongs={contracts.data ?? []}
-      isSaving={busy || contracts.isFetching} onChange={(e) => {
+      isSaving={busy || contracts.isFetching || contracts.isError} onChange={(e) => {
         const { name, value } = e.target; setForm((prev) => ({ ...prev, [name]: value }));
       }} onSubmit={submit} onCancel={reset} />}
     {bills.isError ? <div className="text-red-600"><p>{getErrorMessage(bills.error, "Không tải được hóa đơn")}</p>
       <button onClick={() => bills.refetch()}>Thử lại</button></div> : bills.isPending ? <p>Đang tải...</p> : <>
       <HoaDonTable hoaDons={bills.data.content} onEdit={edit} onDelete={(bill) => {
         if (!busy && bill.coTheChinhSua && window.confirm("Xóa hóa đơn cùng các dòng dịch vụ?")) remove.mutate(bill.id);
-      }} onDetail={(bill) => { if (!busy) { setSelectedId(bill.id); setLineBusy(false); } }} isDeleting={busy} />
+      }} onPayments={(bill) => navigate("/thanh-toan?hoaDonId=" + bill.id)} onDetail={(bill) => { if (!busy) { setSelectedId(bill.id); setLineBusy(false); } }} isDeleting={busy} />
       <Pagination page={page} size={size} totalElements={bills.data.totalElements}
         totalPages={bills.data.totalPages} disabled={busy} onPageChange={setPage}
         onSizeChange={(n) => { setSize(n); setPage(0); }} />

@@ -84,7 +84,7 @@ export default function ThanhVienPanel({ contract, accountId, disabled, onBusyCh
     }}>
       <fieldset disabled={busy || tenants.isFetching} className="grid gap-3 md:grid-cols-2">
         <label>Người thuê
-          <select required disabled={editingId != null} value={form.nguoiThueId}
+          <select aria-label="Người thuê" required disabled={editingId != null} value={form.nguoiThueId}
             className={control + " w-full"} onChange={(e) => setForm({ ...form, nguoiThueId: e.target.value })}>
             <option value="">Chọn người thuê</option>
             {(tenants.data ?? []).map((person) => <option key={person.id} value={person.id}>

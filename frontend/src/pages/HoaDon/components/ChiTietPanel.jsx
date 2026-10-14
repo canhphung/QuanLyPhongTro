@@ -75,7 +75,7 @@ export default function ChiTietPanel({ invoice, accountId, disabled, onBusyChang
     {form && invoice.coTheChinhSua && <form className="my-4 rounded border p-4" onSubmit={submit}>
       <fieldset disabled={busy || services.isFetching} className="grid gap-3 md:grid-cols-2">
         <label>Dịch vụ
-          <select className={control + " w-full"} required value={form.dichVuId}
+          <select aria-label="Dịch vụ" className={control + " w-full"} required value={form.dichVuId}
             disabled={editingId != null} onChange={(e) => setForm({
               dichVuId: e.target.value, chiSoCu: "", chiSoMoi: "", soLuong: "",
             })}>

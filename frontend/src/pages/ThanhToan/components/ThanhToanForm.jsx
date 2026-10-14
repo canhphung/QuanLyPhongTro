@@ -4,7 +4,7 @@ export default function ThanhToanForm({ form, setForm, editingId, invoices, invo
   return <form onSubmit={onSubmit} className="mb-5 rounded bg-white p-4 shadow">
     <fieldset disabled={disabled} className="grid gap-3 md:grid-cols-2">
       <legend className="mb-3 font-semibold">{editingId == null ? "Ghi nhận khoản thu" : "Sửa khoản thu"}</legend>
-      <label>Hóa đơn<select required className={control} value={form.hoaDonId}
+      <label>Hóa đơn<select aria-label="Hóa đơn" required className={control} value={form.hoaDonId}
         disabled={editingId != null} onChange={(e) => setForm({ ...form, hoaDonId: e.target.value, soTien: "" })}>
         <option value="">Chọn hóa đơn</option>
         {invoices.map((bill) => <option key={bill.id} value={bill.id}>
@@ -13,7 +13,7 @@ export default function ThanhToanForm({ form, setForm, editingId, invoices, invo
       </select></label>
       <label>Số tiền (đồng)<input required inputMode="numeric" maxLength={19} className={control}
         value={form.soTien} onChange={(e) => setForm({ ...form, soTien: e.target.value })} /></label>
-      <label>Phương thức<select className={control} value={form.phuongThuc}
+      <label>Phương thức<select aria-label="Phương thức" className={control} value={form.phuongThuc}
         onChange={(e) => setForm({ ...form, phuongThuc: e.target.value })}>
         <option value="TIEN_MAT">Tiền mặt</option><option value="CHUYEN_KHOAN">Chuyển khoản</option>
         <option value="VI_DIEN_TU">Ví điện tử</option>

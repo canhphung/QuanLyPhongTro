@@ -1,4 +1,5 @@
 import { Navigate, Routes, Route } from "react-router-dom";
+import HomeRedirect from "./HomeRedirect";
 import TaiKhoanPage from "../pages/Auth/TaiKhoanPage";
 import MainLayout from "../components/layout/MainLayout";
 import RequireOwner from "./RequireOwner";
@@ -14,7 +15,7 @@ import DashboardPage from "../pages/Dashboard/DashboardPage";
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/tai-khoan" replace />} />
+      <Route path="/" element={<HomeRedirect />} />
       <Route path="/tai-khoan" element={<TaiKhoanPage />} />
       <Route element={<RequireOwner />}>
         <Route element={<MainLayout />}>

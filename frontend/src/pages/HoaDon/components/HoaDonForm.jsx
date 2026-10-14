@@ -41,7 +41,7 @@ function HoaDonForm({
             </label>
 
             <select
-                name="hopDongId"
+                aria-label="Hợp đồng" name="hopDongId"
                 value={formData.hopDongId}
                 onChange={onChange}
                 disabled={editingId !== null}

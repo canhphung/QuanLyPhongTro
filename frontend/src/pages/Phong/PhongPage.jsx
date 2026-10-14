@@ -1,3 +1,4 @@
+import { validDecimal, normalizeDecimal } from "../../utils/decimalValues";
 import { useEffect, useState } from "react";
 import {
   useMutation,
@@ -81,7 +82,6 @@ function PhongPage() {
   });
 
   const phongs = data?.content ?? [];
-  const totalPages = data?.totalPages ?? 0;
 
   // Nếu xóa dòng cuối của trang, quay về trang còn tồn tại.
   useEffect(() => {
@@ -102,8 +102,8 @@ function PhongPage() {
 
   const refreshData = () =>
       Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["phong"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["phong", account?.id] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard", account?.id] }),
       ]);
 
   const showError = (error, message) => {
@@ -181,12 +181,15 @@ function PhongPage() {
     if (isBusy) return;
 
     if (!formData.nhaTroId) { alert("Hãy chọn nhà trọ"); return; }
+    if (!validDecimal(formData.giaThue, 19, 0, false)) {
+      alert("Giá thuê nguyên dương, tối đa 19 chữ số"); return;
+    }
     const data = {
       nhaTroId: Number(formData.nhaTroId),
       soPhong: formData.soPhong.trim(),
       dienTich: Number(formData.dienTich),
       // Gửi chuỗi để không làm mất độ chính xác tiền qua Number.
-      giaThue: String(formData.giaThue).trim(),
+      giaThue: normalizeDecimal(formData.giaThue),
     };
 
     if (editingId !== null) {

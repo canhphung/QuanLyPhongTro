@@ -1,3 +1,5 @@
+import { useNavigate } from "react-router-dom";
+import { normalizeDecimal, validDecimal } from "../../utils/decimalValues";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createHopDong, getHopDongPage, getHopDongById,
@@ -15,6 +17,7 @@ const emptyForm = { phongId: "", ngayBatDau: "", ngayKetThuc: "",
 
 export default function HopDongPage() {
   const client = useQueryClient();
+  const navigate = useNavigate();
   const { data: account } = useAccount();
   const [form, setForm] = useState(null);
   const [editingId, setEditingId] = useState(null);
@@ -64,19 +67,18 @@ export default function HopDongPage() {
     if (busy) return;
     setEditingId(contract.id);
     setForm({ phongId: contract.phongId, ngayBatDau: contract.ngayBatDau,
-      ngayKetThuc: contract.ngayKetThuc, giaThueThoaThuan: String(contract.giaThueThoaThuan),
-      tienCoc: String(contract.tienCoc) });
+      ngayKetThuc: contract.ngayKetThuc, giaThueThoaThuan: normalizeDecimal(contract.giaThueThoaThuan),
+      tienCoc: normalizeDecimal(contract.tienCoc) });
   };
   const submit = (event) => {
     event.preventDefault();
-    if (busy || rooms.isFetching) return;
+    if (busy || rooms.isFetching || rooms.isError) return;
     const rent = String(form.giaThueThoaThuan).trim(), deposit = String(form.tienCoc).trim();
-    if (!form.phongId || !/^[0-9]{1,19}$/.test(rent) || !/[1-9]/.test(rent)
-      || !/^[0-9]{1,19}$/.test(deposit)) {
+    if (!form.phongId || !validDecimal(rent, 19, 0, false) || !validDecimal(deposit, 19, 0)) {
       setNotice("Chọn phòng; giá thuê nguyên dương và cọc nguyên không âm, tối đa 19 chữ số."); return;
     }
     save.mutate({ id: editingId, data: { ...form, phongId: Number(form.phongId),
-      giaThueThoaThuan: rent, tienCoc: deposit } });
+      giaThueThoaThuan: normalizeDecimal(rent), tienCoc: normalizeDecimal(deposit) } });
   };
   const endContract = (contract) => {
     if (busy) return;
@@ -126,7 +128,7 @@ export default function HopDongPage() {
       <button onClick={() => contracts.refetch()}>Thử lại</button>
     </div> : contracts.isPending ? <p>Đang tải hợp đồng...</p> : <>
       <HopDongTable hopDongs={contracts.data.content} onEdit={edit} onKetThuc={endContract}
-        onHuy={cancelContract} onMembers={(item) => {
+        onHuy={cancelContract} onInvoices={(item) => navigate("/hoa-don?hopDongId=" + item.id)} onMembers={(item) => {
           if (!busy) { setSelectedId(item.id); setMemberBusy(false); }
         }} isProcessing={busy} />
       <Pagination page={page} size={size} totalElements={contracts.data.totalElements}

@@ -1,3 +1,4 @@
+import getErrorMessage from "../../utils/getErrorMessage";
 import { useEffect, useState } from "react";
 
 import {
@@ -78,38 +79,8 @@ function NguoiThuePage() {
   // ==========================================
 
   const refreshNguoiThueList = () => {
-    queryClient.invalidateQueries({
-      queryKey: ["nguoi-thue"],
-    });
-  };
-
-  // ==========================================
-  // Lấy message lỗi từ Spring Boot
-  // ==========================================
-
-  const getErrorMessage = (error, defaultMessage) => {
-    const data = error.response?.data;
-
-    if (data?.message) {
-      return data.message;
-    }
-
-    // Validation error của Spring Boot
-    // Ví dụ:
-    // {
-    //   hoTen: "Họ tên không được để trống",
-    //   cccd: "CCCD tối đa 20 ký tự"
-    // }
-
-    if (data && typeof data === "object") {
-      const messages = Object.values(data);
-
-      if (messages.length > 0) {
-        return messages.join("\n");
-      }
-    }
-
-    return defaultMessage;
+    return Promise.all(["nguoi-thue", "thanh-vien", "dashboard"].map(
+      (key) => queryClient.invalidateQueries({ queryKey: [key, account?.id] })));
   };
 
   // ==========================================

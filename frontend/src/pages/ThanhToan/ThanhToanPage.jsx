@@ -1,9 +1,11 @@
+import { Link, useSearchParams } from "react-router-dom";
+import { positiveIdParam } from "../../utils/managementNavigation";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useAccount from "../../hooks/useAccount";
 import { getThanhToanPage, createThanhToan, updateThanhToan, deleteThanhToan } from "../../api/thanhToanApi";
 import { getAllHoaDon, getHoaDonById } from "../../api/hoaDonApi";
-import { decimalUnits } from "../../utils/decimalValues";
+import { decimalUnits, formatMoney } from "../../utils/decimalValues";
 import { receiptLimit, validReceipt, receiptAmount } from "../../utils/paymentValues";
 import getErrorMessage from "../../utils/getErrorMessage";
 import Pagination from "../../components/common/Pagination";
@@ -14,8 +16,15 @@ const empty = { hoaDonId: "", soTien: "", phuongThuc: "TIEN_MAT", maGiaoDich: ""
 export default function ThanhToanPage() {
   const { data: account } = useAccount();
   const client = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filter = positiveIdParam(searchParams.get("hoaDonId"));
+  const setFilter = (value) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set("hoaDonId", value); else next.delete("hoaDonId");
+    setSearchParams(next);
+  };
   const [page, setPage] = useState(0), [size, setSize] = useState(10);
-  const [filter, setFilter] = useState(""), [form, setForm] = useState(null);
+  const [form, setForm] = useState(null);
   const [editing, setEditing] = useState(null), [notice, setNotice] = useState("");
   const params = { page, size, hoaDonId: filter || undefined };
   const payments = useQuery({ queryKey: ["thanh-toan", account?.id, params],
@@ -24,6 +33,9 @@ export default function ThanhToanPage() {
     queryFn: ({ signal }) => getAllHoaDon(undefined, signal), enabled: Boolean(account) });
   const invoice = useQuery({ queryKey: ["hoa-don", account?.id, "detail", Number(form?.hoaDonId)],
     queryFn: ({ signal }) => getHoaDonById(form.hoaDonId, signal), enabled: Boolean(form?.hoaDonId) });
+  const history = useQuery({ queryKey: ["hoa-don", account?.id, "detail", Number(filter)],
+    queryFn: ({ signal }) => getHoaDonById(filter, signal), enabled: Boolean(account && filter) });
+  useEffect(() => { setPage(0); setForm(null); setEditing(null); }, [filter]);
   useEffect(() => {
     if (payments.data && !payments.isFetching && !payments.isError) {
       const last = Math.max(0, payments.data.totalPages - 1);
@@ -47,10 +59,19 @@ export default function ThanhToanPage() {
   return <div>
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
       <h1 className="text-2xl font-bold">Thanh toán</h1>
-      <button className={control} disabled={busy || bills.isFetching || bills.isError}
-        onClick={() => { setEditing(null); setForm({ ...empty }); setNotice(""); }}>Ghi nhận khoản thu</button>
+      <button className={control} disabled={busy || bills.isFetching || bills.isError || options.length === 0}
+        onClick={() => { setEditing(null); setForm({ ...empty, hoaDonId: options.some((bill) => String(bill.id) === filter) ? filter : "" }); setNotice(""); }}>Ghi nhận khoản thu</button>
     </div>
     <p className="mb-3 text-gray-600">Ghi nhận tiền đã nhận từ người thuê. Thời gian thu dùng giờ Việt Nam.</p>
+    {filter && <section className="mb-4 rounded bg-white p-4 shadow">
+      {history.isError ? <p className="text-red-600">{getErrorMessage(history.error, "Không tải được hóa đơn")}
+        <button onClick={() => history.refetch()}>Thử lại</button></p> : history.isPending ? <p>Đang tải hóa đơn...</p> : <>
+        <h2 className="mb-2 font-semibold">Hóa đơn #{history.data.id} · {history.data.tenNhaTro} · {history.data.soPhong} · Kỳ {history.data.kyThanhToan.slice(0, 7)}</h2>
+        <p>Tổng: {formatMoney(history.data.tongTien)} · Đã thu: {formatMoney(history.data.daThanhToan)} · Còn thiếu: {formatMoney(history.data.conThieu)}</p>
+        <Link className="text-blue-700" to={"/hoa-don?hopDongId=" + history.data.hopDongId + "&hoaDonId=" + history.data.id}>Xem hóa đơn và dịch vụ</Link>
+      </>}
+    </section>}
+    {bills.isSuccess && options.length === 0 && <p className="mb-3">Không có hóa đơn còn thiếu để ghi khoản thu mới.</p>}
     {notice && <p role="status" className="mb-3 whitespace-pre-line">{notice}</p>}
     {bills.isError && <p className="mb-3 text-red-600">{getErrorMessage(bills.error, "Không tải được hóa đơn")}
       <button onClick={() => bills.refetch()}>Thử lại</button></p>}
@@ -74,10 +95,6 @@ export default function ThanhToanPage() {
         {(bills.data ?? []).map((bill) => <option key={bill.id} value={bill.id}>
           #{bill.id} · {bill.tenNhaTro} · {bill.soPhong} · {bill.kyThanhToan.slice(0, 7)}</option>)}
       </select>
-      <select aria-label="Số dòng mỗi trang" className={control} value={size} disabled={busy}
-        onChange={(e) => { setSize(Number(e.target.value)); setPage(0); }}>
-        {[10, 20, 50].map((n) => <option key={n} value={n}>{n} dòng/trang</option>)}
-      </select>
       <button className={control} disabled={busy} onClick={refresh}>Làm mới</button>
     </div>
     {payments.isError ? <div className="text-red-600">{getErrorMessage(payments.error, "Không tải được khoản thu")}
@@ -90,7 +107,9 @@ export default function ThanhToanPage() {
           if (window.confirm("Xóa khoản thu #" + row.id + "? Số tiền còn thiếu của hóa đơn sẽ tăng."))
             remove.mutate(row.id);
         }} />
-        <Pagination page={page} totalPages={payments.data.totalPages} onPageChange={setPage} disabled={busy} />
+        <Pagination page={page} size={size} totalElements={payments.data.totalElements}
+          totalPages={payments.data.totalPages} onPageChange={setPage} disabled={busy}
+          onSizeChange={(next) => { setSize(next); setPage(0); }} />
       </>}
   </div>;
 }
