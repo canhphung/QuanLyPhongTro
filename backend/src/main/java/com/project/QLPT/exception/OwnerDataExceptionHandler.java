@@ -9,11 +9,11 @@ import com.project.QLPT.controller.*;
 /** Giới hạn handler vào các API đã chuyển đổi để không thay đổi nghiệp vụ còn lại. */
 @RestControllerAdvice(assignableTypes = {PhongController.class, NguoiThueController.class,
     DichVuController.class, HopDongController.class, ThanhVienHopDongController.class,
-    HoaDonController.class, ChiTietHoaDonController.class, ThanhToanController.class})
+    HoaDonController.class, ChiTietHoaDonController.class, ThanhToanController.class, TinDangController.class, AdminTinDangController.class})
 public class OwnerDataExceptionHandler {
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<Map<String, Object>> handleConflict(DataIntegrityViolationException ex) {
+    @ExceptionHandler({DataIntegrityViolationException.class, org.springframework.dao.OptimisticLockingFailureException.class})
+    public ResponseEntity<Map<String, Object>> handleConflict(RuntimeException ex) {
         return ResponseEntity.status(409).body(Map.of("status", 409,
-            "message", "Dữ liệu bị trùng hoặc đang được sử dụng; hãy tải lại và kiểm tra"));
+            "message", "Dữ liệu đã thay đổi, bị trùng hoặc đang được sử dụng; hãy tải lại và kiểm tra"));
     }
 }

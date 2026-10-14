@@ -28,6 +28,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
                 .requestMatchers("/api/auth/me").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/cong-khai/tin-dang", "/api/cong-khai/tin-dang/**").permitAll()
+                .requestMatchers("/api/admin/tin-dang", "/api/admin/tin-dang/**").hasRole("ADMIN")
+                .requestMatchers("/api/tin-dang", "/api/tin-dang/**").hasRole("CHU_TRO")
                 .requestMatchers("/api/nha-tro", "/api/nha-tro/**").hasRole("CHU_TRO")
                 .requestMatchers("/api/phong", "/api/phong/**",
                     "/api/hop-dong", "/api/hop-dong/**",

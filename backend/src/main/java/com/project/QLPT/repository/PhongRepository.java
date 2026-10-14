@@ -98,4 +98,7 @@ public interface PhongRepository
     java.util.List<Phong> findAll(
         org.springframework.data.jpa.domain.Specification<Phong> specification,
         org.springframework.data.domain.Sort sort);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select p from Phong p where p.id=:id")
+    java.util.Optional<Phong> findForUpdate(@org.springframework.data.repository.query.Param("id") Integer id);
 }

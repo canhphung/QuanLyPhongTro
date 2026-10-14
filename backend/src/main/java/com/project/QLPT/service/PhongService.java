@@ -21,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 public class PhongService {
     private final PhongRepository phongRepository;
     private final HopDongRepository hopDongRepository;
+    private final TinDangRepository tinDangRepository;
     private final NhaTroRepository nhaTroRepository;
     private final CurrentAccountService currentAccount;
     @PersistenceContext private EntityManager entityManager;
@@ -83,6 +84,8 @@ public class PhongService {
         var entity = ownedForUpdate(id);
         if (hopDongRepository.existsByPhong_Id(id))
             throw new BusinessException("Không thể xóa phòng đã phát sinh hợp đồng");
+        if (tinDangRepository.existsByPhong_Id(id))
+            throw new BusinessException("Không thể xóa phòng có tin đăng; xử lý tin trước");
         phongRepository.delete(entity);
         phongRepository.flush();
     }

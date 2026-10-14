@@ -7,7 +7,7 @@ import Pagination from "../../components/common/Pagination";
 import useAccount from "../../hooks/useAccount";
 import useLogout from "../../hooks/useLogout";
 import { setSessionAccount } from "../../utils/sessionState";
-import { managementNavigation, isOwner as accountIsOwner, signedInDestination } from "../../utils/managementNavigation";
+import { managementNavigation, isAdmin as accountIsAdmin, isOwner as accountIsOwner, signedInDestination } from "../../utils/managementNavigation";
 import getErrorMessage from "../../utils/getErrorMessage";
 
 function TaiKhoanPage() {
@@ -26,6 +26,7 @@ function TaiKhoanPage() {
   const meQuery = useAccount();
   const me = meQuery.data;
   const isOwner = accountIsOwner(me);
+  const isAdmin = accountIsAdmin(me);
 
   const houses = useQuery({
     queryKey: ["nha-tro", me?.id, "page", page, size],
@@ -108,7 +109,7 @@ function TaiKhoanPage() {
     <main className="mx-auto max-w-5xl p-6">
       <h1 className="mb-4 text-2xl font-bold">Tài khoản và nhà trọ</h1>
       {logoutMutation.isError && <p role="alert" className="mb-4 text-red-600">{getErrorMessage(logoutMutation.error, "Không thể đăng xuất")}</p>}
-      {location.state?.from && !isOwner && <p className="mb-4">Mục quản lý cần tài khoản chủ trọ. Hãy đăng nhập bằng tài khoản phù hợp.</p>}
+      {location.state?.from && !isOwner && !isAdmin && <p className="mb-4">Mục quản lý cần tài khoản có quyền phù hợp. Hãy đăng nhập bằng tài khoản phù hợp.</p>}
       {notice && <p role="status" className="mb-4 whitespace-pre-line">{notice}</p>}
 
       {!me ? (
@@ -161,11 +162,12 @@ function TaiKhoanPage() {
             <button className={button} disabled={busy}
               onClick={() => logoutMutation.mutate()}>Đăng xuất</button>
           </div>
+          {isAdmin && <Link className="mb-4 block text-blue-700" to="/admin/tin-dang">Kiểm duyệt tin đăng</Link>}
           {isOwner && <nav aria-label="Quản lý" className="mb-5 flex flex-wrap gap-4 text-blue-600">
             {managementNavigation.filter((item) => item.path !== "/tai-khoan").map((item) =>
               <Link key={item.path} to={item.path}>{item.name}</Link>)}
           </nav>}
-          {!isOwner ? <p>Tài khoản người thuê đã đăng nhập. Cổng yêu cầu và hóa đơn sẽ nối ở bước tiếp theo.</p> : <>
+          {!isOwner ? <p>{isAdmin ? "Tài khoản quản trị viên đã đăng nhập." : "Tài khoản người thuê đã đăng nhập. Cổng yêu cầu và hóa đơn sẽ nối ở bước tiếp theo."}</p> : <>
             <form className="mb-5 grid gap-3 rounded bg-white p-5 shadow"
               onSubmit={(event) => {
                 event.preventDefault();

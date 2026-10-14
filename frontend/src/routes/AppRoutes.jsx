@@ -1,3 +1,7 @@
+import TinDangPage from "../pages/owner/TinDang/TinDangPage";
+import AdminTinDangPage from "../pages/admin/TinDang/AdminTinDangPage";
+import RequireAdmin from "./RequireAdmin";
+import AdminLayout from "../components/layout/admin/AdminLayout";
 import { Navigate, Routes, Route } from "react-router-dom";
 import HomeRedirect from "./HomeRedirect";
 import TaiKhoanPage from "../pages/Auth/TaiKhoanPage";
@@ -19,6 +23,7 @@ export default function AppRoutes() {
       <Route path="/tai-khoan" element={<TaiKhoanPage />} />
       <Route element={<RequireOwner />}>
         <Route element={<MainLayout />}>
+          <Route path="/tin-dang" element={<TinDangPage />} />
           <Route path="/phong" element={<PhongPage />} />
           <Route path="/nguoi-thue" element={<NguoiThuePage />} />
           <Route path="/dich-vu" element={<DichVuPage />} />
@@ -28,6 +33,9 @@ export default function AppRoutes() {
           <Route path="/dashboard" element={<DashboardPage />} />
         </Route>
       </Route>
+      <Route element={<RequireAdmin />}><Route element={<AdminLayout />}>
+        <Route path="/admin/tin-dang" element={<AdminTinDangPage />} />
+      </Route></Route>
       <Route path="*" element={<Navigate to="/tai-khoan" replace />} />
     </Routes>
   );

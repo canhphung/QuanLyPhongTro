@@ -152,3 +152,50 @@ CREATE TABLE thanh_toan
     CONSTRAINT fk_thanh_toan_hoa_don FOREIGN KEY (hoa_don_id) REFERENCES
         hoa_don(id)
 );
+
+-- Tin đăng: 1 tin/phòng; nội dung vị trí/diện tích/giá độc lập với phòng sau khi chốt.
+CREATE TABLE tin_dang (
+ id INT AUTO_INCREMENT PRIMARY KEY,
+ phong_id INT NOT NULL,
+ phien_ban INT NOT NULL DEFAULT 0,
+ tieu_de VARCHAR(255) NOT NULL,
+ mo_ta VARCHAR(8000) NOT NULL,
+ gia_thue DECIMAL(19,0) NOT NULL,
+ dien_tich DECIMAL(10,2) NOT NULL,
+ dia_chi VARCHAR(500) NOT NULL,
+ so_dien_thoai_lien_he VARCHAR(30) NOT NULL,
+ trang_thai VARCHAR(30) NOT NULL,
+ ly_do VARCHAR(1000) NULL,
+ ngay_tao DATETIME(6) NOT NULL,
+ ngay_cap_nhat DATETIME(6) NOT NULL,
+ ngay_gui_duyet DATETIME(6) NULL,
+ ngay_duyet DATETIME(6) NULL,
+ CONSTRAINT uk_tin_dang_phong UNIQUE (phong_id),
+ CONSTRAINT fk_tin_dang_phong FOREIGN KEY (phong_id) REFERENCES phong(id),
+ CONSTRAINT ck_tin_dang_gia CHECK (gia_thue > 0),
+ CONSTRAINT ck_tin_dang_trang_thai CHECK (trang_thai IN ('NHAP','CHO_DUYET','DA_DUYET','TU_CHOI','DA_AN')),
+ INDEX idx_tin_dang_trang_thai_id (trang_thai,id)
+);
+
+CREATE TABLE tin_dang_anh (
+ tin_dang_id INT NOT NULL,
+ thu_tu INT NOT NULL,
+ url VARCHAR(2048) NOT NULL,
+ PRIMARY KEY (tin_dang_id,thu_tu),
+ CONSTRAINT fk_tin_dang_anh FOREIGN KEY (tin_dang_id) REFERENCES tin_dang(id)
+);
+
+-- Lưu lịch sử gửi/rút/duyệt/từ chối/ẩn; không xóa tin đã có lịch sử.
+CREATE TABLE lich_su_tin_dang (
+ id INT AUTO_INCREMENT PRIMARY KEY,
+ tin_dang_id INT NOT NULL,
+ nguoi_thuc_hien_id INT NOT NULL,
+ phien_ban INT NOT NULL,
+ hanh_dong VARCHAR(30) NOT NULL,
+ ly_do VARCHAR(1000) NULL,
+ thoi_diem DATETIME(6) NOT NULL,
+ CONSTRAINT fk_lich_su_tin_dang FOREIGN KEY (tin_dang_id) REFERENCES tin_dang(id),
+ CONSTRAINT fk_lich_su_tin_actor FOREIGN KEY (nguoi_thuc_hien_id) REFERENCES tai_khoan(id),
+ CONSTRAINT ck_lich_su_tin_action CHECK (hanh_dong IN ('GUI_DUYET','RUT_DUYET','DUYET','TU_CHOI','AN')),
+ INDEX idx_lich_su_tin_id (tin_dang_id,id)
+);
