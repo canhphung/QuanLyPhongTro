@@ -16,6 +16,19 @@ import com.project.QLPT.entity.ChiTietHoaDon;
  */
 public interface ChiTietHoaDonRepository
         extends JpaRepository<ChiTietHoaDon, Integer> {
+    interface AmountRow {
+        Integer getInvoiceId();
+        Integer getServiceOwnerId();
+        java.math.BigDecimal getQuantity();
+        java.math.BigDecimal getPrice();
+    }
+
+    @org.springframework.data.jpa.repository.Query("""
+        select c.hoaDon.id as invoiceId, c.dichVu.chuTro.id as serviceOwnerId,
+            c.soLuong as quantity, c.donGia as price
+        from ChiTietHoaDon c where c.hoaDon.hopDong.phong.nhaTro.chuTro.id = :ownerId
+        """)
+    List<AmountRow> amountsForOwner(@org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
 
     /**
      * Lấy danh sách dòng chi tiết của một hóa đơn.
@@ -23,6 +36,7 @@ public interface ChiTietHoaDonRepository
      * @param hoaDonId mã hóa đơn cần lấy chi tiết
      * @return danh sách dòng chi tiết của hóa đơn
      */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "dichVu")
     List<ChiTietHoaDon> findByHoaDon_Id(Integer hoaDonId);
 
     /**
@@ -66,4 +80,25 @@ public interface ChiTietHoaDonRepository
      * @param hoaDonId mã hóa đơn cần xóa chi tiết
      */
     void deleteByHoaDon_Id(Integer hoaDonId);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "dichVu")
+    @org.springframework.data.jpa.repository.Query("""
+        select c from ChiTietHoaDon c where c.hoaDon.id = :invoiceId
+          and c.hoaDon.hopDong.phong.nhaTro.chuTro.id = :ownerId
+          and c.dichVu.chuTro.id = :ownerId order by c.id
+        """)
+    List<ChiTietHoaDon> findOwnedLines(
+        @org.springframework.data.repository.query.Param("invoiceId") Integer invoiceId,
+        @org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "dichVu")
+    @org.springframework.data.jpa.repository.Query("""
+        select c from ChiTietHoaDon c where c.id = :lineId and c.hoaDon.id = :invoiceId
+          and c.hoaDon.hopDong.phong.nhaTro.chuTro.id = :ownerId
+          and c.dichVu.chuTro.id = :ownerId
+        """)
+    java.util.Optional<ChiTietHoaDon> findOwnedLine(
+        @org.springframework.data.repository.query.Param("invoiceId") Integer invoiceId,
+        @org.springframework.data.repository.query.Param("lineId") Integer lineId,
+        @org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
 }

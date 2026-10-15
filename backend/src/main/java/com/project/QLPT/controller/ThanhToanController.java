@@ -1,6 +1,7 @@
 package com.project.QLPT.controller;
 
 import java.util.List;
+import com.project.QLPT.dto.response.PageResponse;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -52,5 +53,13 @@ public class ThanhToanController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Integer id) {
         thanhToanService.delete(id);
+    }
+
+    @GetMapping("/phan-trang")
+    public PageResponse<ThanhToanResponse> getPage(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Integer hoaDonId) {
+        return thanhToanService.getPage(page, size, hoaDonId);
     }
 }

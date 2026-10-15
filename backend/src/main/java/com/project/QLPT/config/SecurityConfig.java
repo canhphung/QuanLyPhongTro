@@ -1,5 +1,7 @@
 package com.project.QLPT.config;
 
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -8,69 +10,134 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.DispatcherType;
 
 @Configuration
 public class SecurityConfig {
-    @Bean
-    PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
+  @Bean
+  PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
 
-    @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-            .cors(cors -> {})
-            .csrf(csrf -> csrf.csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
-            .requestCache(cache -> cache.disable())
-            .httpBasic(basic -> basic.disable())
-            .authorizeHttpRequests(auth -> auth
-                .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
-                .requestMatchers("/api/auth/me").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/cong-khai/tin-dang", "/api/cong-khai/tin-dang/**").permitAll()
-                .requestMatchers("/api/admin/tin-dang", "/api/admin/tin-dang/**").hasRole("ADMIN")
-                .requestMatchers("/api/tin-dang", "/api/tin-dang/**").hasRole("CHU_TRO")
-                .requestMatchers("/api/nha-tro", "/api/nha-tro/**").hasRole("CHU_TRO")
-                .requestMatchers("/api/phong", "/api/phong/**",
-                    "/api/hop-dong", "/api/hop-dong/**",
-                    "/api/hoa-don", "/api/hoa-don/**",
-                    "/api/thanh-toan", "/api/thanh-toan/**",
-                    "/api/dashboard", "/api/dashboard/**",
-                    "/api/nguoi-thue", "/api/nguoi-thue/**",
-                    "/api/dich-vu", "/api/dich-vu/**").hasRole("CHU_TRO")
-                // API cũ chưa lọc chủ sở hữu: chặn đến khi chuyển đổi xong.
-                .anyRequest().denyAll()
-            )
-            .exceptionHandling(errors -> errors
-                .authenticationEntryPoint((req, res, ex) ->
-                    json(res, 401, "{\"message\":\"Cần đăng nhập\"}"))
-                .accessDeniedHandler((req, res, ex) ->
-                    json(res, 403, "{\"message\":\"Không có quyền hoặc CSRF không hợp lệ\"}"))
-            )
-            .formLogin(form -> form
-                .loginProcessingUrl("/api/auth/login")
-                .usernameParameter("email")
-                .passwordParameter("password")
-                .successHandler((req, res, auth) ->
-                    json(res, 200, "{\"message\":\"Đăng nhập thành công\"}"))
-                .failureHandler((req, res, ex) ->
-                    json(res, 401, "{\"message\":\"Email hoặc mật khẩu không đúng\"}"))
-            )
-            .logout(logout -> logout
-                .logoutUrl("/api/auth/logout")
-                .deleteCookies("JSESSIONID")
-                .logoutSuccessHandler((req, res, auth) ->
-                    json(res, 200, "{\"message\":\"Đã đăng xuất\"}"))
-                .permitAll()
-            );
-        return http.build();
-    }
+  @Bean
+  SecurityFilterChain securityFilterChain(
+      HttpSecurity http,
+      org.springframework.security.web.csrf.CsrfTokenRepository tokens,
+      org.springframework.security.web.context.SecurityContextRepository contexts)
+      throws Exception {
+    http.cors(cors -> {})
+        .csrf(
+            csrf ->
+                csrf.csrfTokenRepository(tokens)
+                    .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
+        .securityContext(context -> context.securityContextRepository(contexts))
+        .requestCache(cache -> cache.disable())
+        .httpBasic(basic -> basic.disable())
+        .authorizeHttpRequests(
+            auth ->
+                auth.dispatcherTypeMatchers(DispatcherType.ERROR)
+                    .permitAll()
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/auth/csrf",
+                        "/api/app/session",
+                        "/api/app/state",
+                        "/api/app/listings")
+                    .permitAll()
+                    .requestMatchers(
+                        HttpMethod.POST, "/api/app/auth/login", "/api/app/auth/register")
+                    .permitAll()
+                    .requestMatchers("/api/app/owner/**")
+                    .hasRole("CHU_TRO")
+                    .requestMatchers("/api/app/**")
+                    .authenticated()
+                    .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login")
+                    .permitAll()
+                    .requestMatchers("/api/auth/me")
+                    .authenticated()
+                    .requestMatchers(
+                        HttpMethod.GET, "/api/cong-khai/tin-dang", "/api/cong-khai/tin-dang/**")
+                    .permitAll()
+                    .requestMatchers("/api/admin/tin-dang", "/api/admin/tin-dang/**")
+                    .hasRole("ADMIN")
+                    .requestMatchers("/api/tin-dang", "/api/tin-dang/**")
+                    .hasRole("CHU_TRO")
+                    .requestMatchers("/api/nha-tro", "/api/nha-tro/**")
+                    .hasRole("CHU_TRO")
+                    .requestMatchers(
+                        "/api/phong",
+                        "/api/phong/**",
+                        "/api/hop-dong",
+                        "/api/hop-dong/**",
+                        "/api/hoa-don",
+                        "/api/hoa-don/**",
+                        "/api/thanh-toan",
+                        "/api/thanh-toan/**",
+                        "/api/dashboard",
+                        "/api/dashboard/**",
+                        "/api/nguoi-thue",
+                        "/api/nguoi-thue/**",
+                        "/api/dich-vu",
+                        "/api/dich-vu/**")
+                    .hasRole("CHU_TRO")
+                    // API cũ chưa lọc chủ sở hữu: chặn đến khi chuyển đổi xong.
+                    .anyRequest()
+                    .denyAll())
+        .exceptionHandling(
+            errors ->
+                errors
+                    .authenticationEntryPoint(
+                        (req, res, ex) -> json(res, 401, "{\"message\":\"Cần đăng nhập\"}"))
+                    .accessDeniedHandler(
+                        (req, res, ex) ->
+                            json(
+                                res,
+                                403,
+                                "{\"message\":\"Không có quyền hoặc CSRF không hợp lệ\"}")))
+        .formLogin(
+            form ->
+                form.loginProcessingUrl("/api/auth/login")
+                    .usernameParameter("email")
+                    .passwordParameter("password")
+                    .successHandler(
+                        (req, res, auth) ->
+                            json(res, 200, "{\"message\":\"Đăng nhập thành công\"}"))
+                    .failureHandler(
+                        (req, res, ex) ->
+                            json(res, 401, "{\"message\":\"Email hoặc mật khẩu không đúng\"}")))
+        .logout(
+            logout ->
+                logout
+                    .logoutUrl("/api/auth/logout")
+                    .deleteCookies("JSESSIONID")
+                    .logoutSuccessHandler(
+                        (req, res, auth) -> json(res, 200, "{\"message\":\"Đã đăng xuất\"}"))
+                    .permitAll());
+    return http.build();
+  }
 
-    private static void json(HttpServletResponse response, int status, String body)
-            throws java.io.IOException {
-        response.setStatus(status);
-        response.setContentType("application/json;charset=UTF-8");
-        response.getWriter().write(body);
-    }
+  @Bean
+  org.springframework.security.authentication.AuthenticationManager authenticationManager(
+      org.springframework.security.config.annotation.authentication.configuration
+              .AuthenticationConfiguration
+          configuration)
+      throws Exception {
+    return configuration.getAuthenticationManager();
+  }
+
+  @Bean
+  org.springframework.security.web.csrf.CsrfTokenRepository csrfTokenRepository() {
+    return new org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository();
+  }
+
+  @Bean
+  org.springframework.security.web.context.SecurityContextRepository securityContextRepository() {
+    return new org.springframework.security.web.context.HttpSessionSecurityContextRepository();
+  }
+
+  private static void json(HttpServletResponse response, int status, String body)
+      throws java.io.IOException {
+    response.setStatus(status);
+    response.setContentType("application/json;charset=UTF-8");
+    response.getWriter().write(body);
+  }
 }

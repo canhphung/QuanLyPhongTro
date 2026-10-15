@@ -31,6 +31,9 @@ export default function PublicLayout() {
           <Brand />
           <nav aria-label="Điều hướng chính" className="desktop-nav">
             <NavLink to="/tim-phong">Tìm phòng</NavLink>
+            {user?.roles?.includes("ADMIN") && (
+              <NavLink to="/quan-tri/tin-dang">Duyệt tin đăng</NavLink>
+            )}
             <NavLink to="/yeu-thich">
               Phòng đã lưu
               {saved.length > 0 && (

@@ -17,7 +17,7 @@ import com.project.QLPT.entity.NguoiThue;
  * </p>
  */
 public interface NguoiThueRepository
-        extends JpaRepository<NguoiThue, Integer> {
+        extends JpaRepository<NguoiThue, Integer>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<NguoiThue> {
 
     /**
      * Tìm người thuê theo số căn cước công dân.
@@ -69,4 +69,15 @@ public interface NguoiThueRepository
      * @return danh sách người thuê có số điện thoại phù hợp
      */
     List<NguoiThue> findBySoDienThoaiContaining(String soDienThoai);
+
+    java.util.Optional<NguoiThue> findByIdAndChuTro_Id(Integer id, Integer ownerId);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select e from NguoiThue e where e.id = :id and e.chuTro.id = :ownerId")
+    java.util.Optional<NguoiThue> findOwnedForUpdate(
+        @org.springframework.data.repository.query.Param("id") Integer id,
+        @org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
+
+    boolean existsByChuTro_IdAndCccd(Integer ownerId, String value);
+    boolean existsByChuTro_IdAndCccdAndIdNot(Integer ownerId, String value, Integer id);
 }

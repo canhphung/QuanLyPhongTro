@@ -53,9 +53,11 @@ export function AuthPage({ register = false }) {
       navigate(
         next?.startsWith("/") && !next.startsWith("//")
           ? next
-          : user.role === "owner"
-            ? "/chu-tro/tong-quan"
-            : "/tai-khoan",
+          : user.role === "admin"
+            ? "/quan-tri/tin-dang"
+            : user.role === "owner"
+              ? "/chu-tro/tong-quan"
+              : "/tai-khoan",
         { replace: true },
       );
     } catch (e) {
@@ -194,7 +196,7 @@ export function AuthPage({ register = false }) {
     </div>
   );
 }
-export function RequireAccount({ owner = false, children }) {
+export function RequireAccount({ owner = false, admin = false, children }) {
   const { user } = useAppData();
   const location = useLocation();
   if (!user)
@@ -203,6 +205,20 @@ export function RequireAccount({ owner = false, children }) {
         to={`/dang-nhap?next=${encodeURIComponent(location.pathname + location.search)}`}
         replace
       />
+    );
+  if (admin && !user.roles?.includes("ADMIN"))
+    return (
+      <div className="page-container">
+        <EmptyState
+          title="Khu vực quản trị"
+          message="Tài khoản của bạn không có quyền duyệt tin."
+          action={
+            <Link className="button" to="/">
+              Về trang chủ
+            </Link>
+          }
+        />
+      </div>
     );
   if (owner && user.role !== "owner")
     return (

@@ -35,21 +35,24 @@ export function ApiProvider({ children }) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
     try {
-      const response = await fetch(`${base}/api/app${path}`, {
-        method,
-        credentials: "include",
-        signal: controller.signal,
-        headers: {
-          Accept: "application/json",
-          ...(method !== "GET"
-            ? {
-                "Content-Type": "application/json",
-                "X-CSRF-Token": csrf.current,
-              }
-            : {}),
+      const response = await fetch(
+        `${base}${path.startsWith("/api/") ? path : `/api/app${path}`}`,
+        {
+          method,
+          credentials: "include",
+          signal: controller.signal,
+          headers: {
+            Accept: "application/json",
+            ...(method !== "GET"
+              ? {
+                  "Content-Type": "application/json",
+                  "X-CSRF-Token": csrf.current,
+                }
+              : {}),
+          },
+          ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
         },
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-      });
+      );
       const text = await response.text();
       let value;
       try {
@@ -142,9 +145,9 @@ export function ApiProvider({ children }) {
   async function logout() {
     await call("/auth/logout", "POST", {});
     generation.current++;
+    navigate("/", { replace: true });
     setData(empty);
     await initialize();
-    navigate("/");
     notify("Đã đăng xuất.");
   }
   async function toggleSaved(id) {
@@ -175,7 +178,11 @@ export function ApiProvider({ children }) {
     toggleSaved,
     saveRecord: (key, id, body) =>
       mutate(`/owner/${key}${id ? `/${id}` : ""}`, id ? "PUT" : "POST", body),
-    deleteRecord: (key, id) => mutate(`/owner/${key}/${id}`, "DELETE"),
+    deleteRecord: (key, id, version) =>
+      mutate(
+        `/owner/${key}/${id}${version != null ? `?version=${version}` : ""}`,
+        "DELETE",
+      ),
     respond: (id, status) => mutate(`/requests/${id}`, "PATCH", { status }),
   };
   return (

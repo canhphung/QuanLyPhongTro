@@ -1,9 +1,7 @@
 package com.project.QLPT.repository;
 
-import jakarta.persistence.LockModeType;
 import java.util.List;
 
-import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import org.springframework.data.domain.Page;
@@ -11,9 +9,6 @@ import org.springframework.data.domain.Pageable;
 
 import com.project.QLPT.entity.Phong;
 import com.project.QLPT.enums.TrangThaiPhong;
-import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 /**
  * Repository cung cấp các thao tác truy cập dữ liệu cho {@link Phong}.
@@ -22,9 +17,8 @@ import org.springframework.data.repository.query.Param;
  * và bổ sung các truy vấn phục vụ nghiệp vụ quản lý phòng.</p>
  */
 public interface PhongRepository
-    extends JpaRepository<Phong, Integer> {
+    extends JpaRepository<Phong, Integer>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Phong> {
 
-  boolean existsByNhaTro_Id(Integer nhaTroId);
   /**
    * Kiểm tra xem số phòng đã tồn tại trong hệ thống hay chưa.
    *
@@ -80,26 +74,31 @@ public interface PhongRepository
       String keyword,
       Pageable pageable
   );
+  boolean existsByNhaTro_Id(Integer nhaTroId);
 
-  @Lock(LockModeType.PESSIMISTIC_WRITE)
-  @Query("""
-    SELECT p FROM Phong p
-    WHERE p.id = :id
-      AND p.nhaTro.chuTro.id = :chuTroId
-    """)
-  Optional<Phong> findOwnedForUpdate(
-      @Param("id") Integer id,
-      @Param("chuTroId") Integer chuTroId
-  );
+    java.util.Optional<Phong> findByIdAndNhaTro_ChuTro_Id(Integer id, Integer ownerId);
 
-  /**
-   * Tìm và khóa phòng để thực hiện thao tác cập nhật.
-   * Sử dụng khi Admin duyệt hoặc quản lý tin đăng.
-   *
-   * @param id ID của phòng
-   * @return Optional chứa phòng nếu tồn tại
-   */
-  @Lock(LockModeType.PESSIMISTIC_WRITE)
-  @Query("SELECT p FROM Phong p WHERE p.id = :id")
-  Optional<Phong> findForUpdate(@Param("id") Integer id);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select e from Phong e where e.id = :id and e.nhaTro.chuTro.id = :ownerId")
+    java.util.Optional<Phong> findOwnedForUpdate(
+        @org.springframework.data.repository.query.Param("id") Integer id,
+        @org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
+
+    boolean existsByNhaTro_IdAndSoPhong(Integer nhaTroId, String soPhong);
+    boolean existsByNhaTro_IdAndSoPhongAndIdNot(Integer nhaTroId, String soPhong, Integer id);
+
+    @Override
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "nhaTro")
+    org.springframework.data.domain.Page<Phong> findAll(
+        org.springframework.data.jpa.domain.Specification<Phong> specification,
+        org.springframework.data.domain.Pageable pageable);
+
+    @Override
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "nhaTro")
+    java.util.List<Phong> findAll(
+        org.springframework.data.jpa.domain.Specification<Phong> specification,
+        org.springframework.data.domain.Sort sort);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select p from Phong p where p.id=:id")
+    java.util.Optional<Phong> findForUpdate(@org.springframework.data.repository.query.Param("id") Integer id);
 }

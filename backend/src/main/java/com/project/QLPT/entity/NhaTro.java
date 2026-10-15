@@ -24,5 +24,9 @@ public class NhaTro {
 
     @Column(name = "dia_chi", nullable = false, length = 500)
     private String diaChi;
+
+    @Column(name="active",nullable=false)
+    @Builder.Default
+    private Boolean active=true;
 }
 

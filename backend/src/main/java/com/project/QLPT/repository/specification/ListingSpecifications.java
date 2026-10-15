@@ -12,7 +12,7 @@ public final class ListingSpecifications {
    if(state!=null)p=cb.and(p,cb.equal(root.get("trangThai"),state));
    if(publicOnly)p=cb.and(p,cb.equal(root.get("trangThai"),TrangThaiTinDang.DA_DUYET),
      cb.equal(root.get("phong").get("trangThai"),TrangThaiPhong.TRONG),
-     cb.isTrue(root.get("phong").get("nhaTro").get("chuTro").get("taiKhoan").get("hoatDong")));
+     cb.isTrue(root.get("phong").get("nhaTro").get("chuTro").get("taiKhoan").get("hoatDong")),cb.isTrue(root.get("phong").get("nhaTro").get("active")));
    if(keyword!=null && !keyword.isBlank()) {
     var escaped=keyword.trim().toLowerCase(Locale.ROOT).replace("!","!!").replace("%","!%").replace("_","!_");
     var pattern="%"+escaped+"%";

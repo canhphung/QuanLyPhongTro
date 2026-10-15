@@ -1,14 +1,9 @@
 package com.project.QLPT.repository;
 
-import jakarta.persistence.LockModeType;
-import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.project.QLPT.entity.HopDong;
 import com.project.QLPT.enums.TrangThaiHopDong;
-import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 /**
  * Repository cung cấp các thao tác truy cập dữ liệu cho {@link HopDong}.
@@ -17,7 +12,7 @@ import org.springframework.data.repository.query.Param;
  * và bổ sung các truy vấn phục vụ nghiệp vụ quản lý hợp đồng thuê phòng.</p>
  */
 public interface HopDongRepository
-    extends JpaRepository<HopDong, Integer> {
+    extends JpaRepository<HopDong, Integer>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<HopDong> {
 
   /**
    * Kiểm tra xem một phòng có tồn tại hợp đồng với trạng thái được chỉ định hay không.
@@ -51,25 +46,24 @@ public interface HopDongRepository
 
   long countByTrangThai(TrangThaiHopDong trangThai);
 
-  /**
-   * Tìm hợp đồng theo ID và chủ sở hữu nhà trọ.
-   */
-  Optional<HopDong> findByIdAndPhong_NhaTro_ChuTro_Id(
-      Integer id,
-      Integer chuTroId
-  );
+  @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"phong", "phong.nhaTro"})
+  java.util.Optional<HopDong> findByIdAndPhong_NhaTro_ChuTro_Id(Integer id, Integer ownerId);
 
-  /**
-   * Tìm và khóa hợp đồng để thực hiện thao tác ghi.
-   */
-  @Lock(LockModeType.PESSIMISTIC_WRITE)
-  @Query("""
-    SELECT h FROM HopDong h
-    WHERE h.id = :id
-      AND h.phong.nhaTro.chuTro.id = :chuTroId
-    """)
-  Optional<HopDong> findOwnedForUpdate(
-      @Param("id") Integer id,
-      @Param("chuTroId") Integer chuTroId
-  );
+  @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+  @org.springframework.data.jpa.repository.Query("select h from HopDong h where h.id = :id and h.phong.nhaTro.chuTro.id = :ownerId")
+  java.util.Optional<HopDong> findOwnedForUpdate(
+      @org.springframework.data.repository.query.Param("id") Integer id,
+      @org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
+
+  @Override
+  @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"phong", "phong.nhaTro"})
+  org.springframework.data.domain.Page<HopDong> findAll(
+      org.springframework.data.jpa.domain.Specification<HopDong> specification,
+      org.springframework.data.domain.Pageable pageable);
+
+  @Override
+  @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"phong", "phong.nhaTro"})
+  java.util.List<HopDong> findAll(
+      org.springframework.data.jpa.domain.Specification<HopDong> specification,
+      org.springframework.data.domain.Sort sort);
 }

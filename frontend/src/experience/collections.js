@@ -54,7 +54,7 @@ export const schemas = {
       ["roomStatus", "Trạng thái"],
     ],
     fields: [
-      text("number", "Số phòng (duy nhất trong hệ thống)"),
+      text("number", "Số phòng (duy nhất trong nhà trọ)"),
       select("buildingId", "Nhà trọ", "buildings"),
       number("area", "Diện tích (m²)", 0.01),
       number("price", "Giá thuê (₫)", 1),
@@ -181,7 +181,7 @@ export const schemas = {
     key: "listings",
     title: "Tin đăng",
     subtitle:
-      "Tin được công khai khi phòng còn trống và nhà trọ đang hoạt động.",
+      "Gửi duyệt để công khai tin. Phòng phải trống và có ít nhất một ảnh HTTPS.",
     singular: "tin đăng",
     columns: [
       ["title", "Tiêu đề"],
@@ -193,6 +193,8 @@ export const schemas = {
     fields: [
       { ...select("roomId", "Phòng", "rooms"), createOnly: true },
       text("title", "Tiêu đề"),
+      number("price", "Giá đăng (₫/tháng)", 1),
+      { ...text("phone", "Số điện thoại liên hệ"), type: "tel" },
       { key: "description", label: "Mô tả phòng", type: "textarea" },
       {
         ...text("amenities", "Tiện nghi (ngăn cách bằng dấu phẩy)", true),
@@ -200,13 +202,13 @@ export const schemas = {
       },
       {
         key: "images",
-        label: "Đường dẫn ảnh HTTPS (mỗi dòng một ảnh, tối đa 8)",
+        label: "Đường dẫn ảnh HTTPS (mỗi dòng một ảnh, tối đa 10)",
         type: "textarea",
         optional: true,
       },
-      select("published", "Công bố tin", [
+      select("published", "Sau khi lưu", [
         ["false", "Bản nháp"],
-        ["true", "Công khai khi phòng còn trống"],
+        ["true", "Gửi quản trị viên duyệt"],
       ]),
     ],
   },

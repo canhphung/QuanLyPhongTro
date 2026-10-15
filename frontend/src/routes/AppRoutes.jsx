@@ -14,6 +14,7 @@ import {
 } from "../experience/AccountPages";
 import { OwnerLayout, OwnerDashboard } from "../experience/OwnerPages";
 import OwnerCollectionPage from "../experience/OwnerCollection";
+import AdminListings from "../experience/AdminListings";
 import { ApiProvider } from "../experience/ApiProvider";
 import { EmptyState } from "../experience/ui";
 
@@ -71,6 +72,14 @@ export default function AppRoutes() {
           </Route>
           <Route path="*" element={<NotFound />} />
         </Route>
+        <Route
+          path="quan-tri/tin-dang"
+          element={
+            <RequireAccount admin>
+              <AdminListings />
+            </RequireAccount>
+          }
+        />
         <Route
           path="chu-tro"
           element={

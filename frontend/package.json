@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "oxlint src vite.config.js",
     "preview": "vite preview",
-    "test": "node scripts/check-integration-helpers.mjs"
+    "test": "node scripts/verify-integration.mjs",
+    "test:ui": "node scripts/verify-integration.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

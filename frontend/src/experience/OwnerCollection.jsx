@@ -22,6 +22,7 @@ function RecordForm({ schema, record, onClose }) {
   async function submit(event) {
     event.preventDefault();
     const body = Object.fromEntries(new FormData(event.currentTarget));
+    if (record?.version != null) body.version = record.version;
     setBusy(true);
     setError("");
     try {
@@ -36,6 +37,7 @@ function RecordForm({ schema, record, onClose }) {
   }
   function initial(field) {
     const value = record?.[field.key];
+    if (field.key === "published") return "false";
     if (!record && field.key === "roomState") return "TRONG";
     if (Array.isArray(value))
       return value.join(field.key === "images" ? "\n" : ", ");
@@ -148,7 +150,8 @@ function cell(key, row) {
   if (key === "publishedStatus")
     return (
       <Status>
-        {row.published && row.available ? "Đang hiển thị" : "Nháp / Đã ẩn"}
+        {row.publishedStatus ||
+          (row.published && row.available ? "Đang hiển thị" : "Nháp / Đã ẩn")}
       </Status>
     );
   if (["status", "roomStatus"].includes(key))
@@ -174,9 +177,7 @@ export default function OwnerCollectionPage({ section }) {
   const detail = rows.find((x) => x.id === detailId);
   const statusOf = (row) =>
     schema.key === "listings"
-      ? row.published && row.available
-        ? "Đang hiển thị"
-        : "Nháp / Đã ẩn"
+      ? row.publishedStatus
       : row.roomStatus || row.status;
   const statuses = [...new Set(rows.map(statusOf).filter(Boolean))];
   const filtered = rows.filter(
@@ -313,8 +314,64 @@ export default function OwnerCollectionPage({ section }) {
                         >
                           <FileText size={16} />
                         </button>
+                        {schema.key === "listings" && (
+                          <>
+                            {row.canSubmit && (
+                              <button
+                                className="text-button"
+                                disabled={busy}
+                                onClick={() =>
+                                  run(() =>
+                                    data.mutate(
+                                      `/owner/listings/${row.id}/submit`,
+                                      "POST",
+                                      { version: row.version },
+                                    ),
+                                  )
+                                }
+                              >
+                                Gửi duyệt
+                              </button>
+                            )}
+                            {row.listingState === "CHO_DUYET" && (
+                              <button
+                                className="text-button"
+                                disabled={busy}
+                                onClick={() =>
+                                  run(() =>
+                                    data.mutate(
+                                      `/owner/listings/${row.id}/withdraw`,
+                                      "POST",
+                                      { version: row.version },
+                                    ),
+                                  )
+                                }
+                              >
+                                Rút duyệt
+                              </button>
+                            )}
+                            {row.listingState === "DA_DUYET" && (
+                              <button
+                                className="text-button"
+                                disabled={busy}
+                                onClick={() =>
+                                  run(() =>
+                                    data.mutate(
+                                      `/owner/listings/${row.id}/hide`,
+                                      "POST",
+                                      { version: row.version },
+                                    ),
+                                  )
+                                }
+                              >
+                                Ẩn tin
+                              </button>
+                            )}
+                          </>
+                        )}
                         <button
                           className="icon-button"
+                          disabled={schema.key === "listings" && !row.canEdit}
                           onClick={() => setEditor(row)}
                           aria-label={`Chỉnh sửa ${row.name || row.title || row.id}`}
                         >
@@ -466,7 +523,11 @@ export default function OwnerCollectionPage({ section }) {
               disabled={busy}
               onClick={() =>
                 run(async () => {
-                  await data.deleteRecord(schema.key, removal.id);
+                  await data.deleteRecord(
+                    schema.key,
+                    removal.id,
+                    removal.version,
+                  );
                   setRemoval(null);
                   data.notify("Đã xóa bản ghi.");
                 })
