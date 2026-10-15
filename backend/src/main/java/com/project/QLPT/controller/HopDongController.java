@@ -1,8 +1,6 @@
 package com.project.QLPT.controller;
 
 import java.util.List;
-import com.project.QLPT.dto.response.PageResponse;
-import com.project.QLPT.enums.TrangThaiHopDong;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -118,14 +116,5 @@ public class HopDongController {
       @PathVariable Integer id) {
 
     return hopDongService.huy(id);
-  }
-
-  @GetMapping("/phan-trang")
-  public PageResponse<HopDongResponse> getPage(
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "10") int size,
-      @RequestParam(required = false) String keyword,
-      @RequestParam(required = false) TrangThaiHopDong trangThai) {
-    return hopDongService.getPage(page, size, keyword, trangThai);
   }
 }

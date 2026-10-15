@@ -1,15 +1,15 @@
-import sessionClient from "./sessionClient";
+import axiosClient from "./axiosClient";
 
 // Lấy tất cả người thuê
-export const getAllNguoiThue = async ({ signal } = {}) => {
-  const response = await sessionClient.get("/api/nguoi-thue", { signal });
+export const getAllNguoiThue = async () => {
+  const response = await axiosClient.get("/api/nguoi-thue");
 
   return response.data;
 };
 
 // Lấy người thuê theo ID
 export const getNguoiThueById = async (id) => {
-  const response = await sessionClient.get(
+  const response = await axiosClient.get(
       `/api/nguoi-thue/${id}`
   );
 
@@ -18,7 +18,7 @@ export const getNguoiThueById = async (id) => {
 
 // Tìm kiếm theo tên
 export const searchNguoiThue = async (ten) => {
-  const response = await sessionClient.get(
+  const response = await axiosClient.get(
       "/api/nguoi-thue/search",
       {
         params: {
@@ -32,7 +32,7 @@ export const searchNguoiThue = async (ten) => {
 
 // Thêm người thuê
 export const createNguoiThue = async (data) => {
-  const response = await sessionClient.post(
+  const response = await axiosClient.post(
       "/api/nguoi-thue",
       data
   );
@@ -42,7 +42,7 @@ export const createNguoiThue = async (data) => {
 
 // Cập nhật người thuê
 export const updateNguoiThue = async ({ id, data }) => {
-  const response = await sessionClient.put(
+  const response = await axiosClient.put(
       `/api/nguoi-thue/${id}`,
       data
   );
@@ -52,7 +52,5 @@ export const updateNguoiThue = async ({ id, data }) => {
 
 // Xóa người thuê
 export const deleteNguoiThue = async (id) => {
-  await sessionClient.delete(`/api/nguoi-thue/${id}`);
+  await axiosClient.delete(`/api/nguoi-thue/${id}`);
 };
-export const getNguoiThuePage = async (params, signal) =>
-  (await sessionClient.get("/api/nguoi-thue/phan-trang", { params, signal })).data;

@@ -1,7 +1,6 @@
 package com.project.QLPT.dto.response;
 
 import java.math.BigDecimal;
-import com.fasterxml.jackson.annotation.JsonFormat;
 
 import com.project.QLPT.enums.TrangThaiPhong;
 
@@ -22,10 +21,8 @@ public record PhongResponse(
     Integer id,
     String soPhong,
     BigDecimal dienTich,
-    @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal giaThue,
-    TrangThaiPhong trangThai,
-    Integer nhaTroId,
-    String tenNhaTro
+    BigDecimal giaThue,
+    TrangThaiPhong trangThai
 ) {
 
 }

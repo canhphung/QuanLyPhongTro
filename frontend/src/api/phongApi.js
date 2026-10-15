@@ -1,29 +1,29 @@
-import sessionClient from './sessionClient'
+import axiosClient from './axiosClient'
 
-export const getAllPhong = async ({ signal } = {}) => {
-  const response = await sessionClient.get('/api/phong', { signal })
+export const getAllPhong = async () => {
+  const response = await axiosClient.get('/api/phong')
 
   return response.data
 }
 
 export const getPhongById = async (id) => {
-  const response = await sessionClient.get(`/api/phong/${id}`)
+  const response = await axiosClient.get(`/api/phong/${id}`)
 
   return response.data
 }
 
 export const createPhong = async (data) => {
-  const response = await sessionClient.post('/api/phong', data)
+  const response = await axiosClient.post('/api/phong', data)
 
   return response.data
 }
 
 export const deletePhong = async (id) => {
-  await sessionClient.delete(`/api/phong/${id}`);
+  await axiosClient.delete(`/api/phong/${id}`);
 };
 
 export const updatePhong = async ({ id, data }) => {
-  const response = await sessionClient.put(
+  const response = await axiosClient.put(
       `/api/phong/${id}`,
       data
   );
@@ -31,16 +31,16 @@ export const updatePhong = async ({ id, data }) => {
   return response.data;
 };
 
-export const getPhongPage = async (params, signal) => {
-  const response = await sessionClient.get("/api/phong/phan-trang", {
-    params, signal,
+export const getPhongPage = async (params) => {
+  const response = await axiosClient.get("/api/phong/phan-trang", {
+    params,
   });
 
   return response.data;
 };
 
 export const updateTrangThaiPhong = async ({ id, trangThai }) => {
-  const response = await sessionClient.patch(
+  const response = await axiosClient.patch(
       `/api/phong/${id}/trang-thai`,
       { trangThai }
   );

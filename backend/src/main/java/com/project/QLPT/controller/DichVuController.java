@@ -1,7 +1,6 @@
 package com.project.QLPT.controller;
 
 import java.util.List;
-import com.project.QLPT.dto.response.PageResponse;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -77,7 +76,11 @@ public class DichVuController {
     public List<DichVuResponse> getAll(
             @RequestParam(required = false) Boolean hoatDong) {
 
-        return dichVuService.getByHoatDong(hoatDong);
+        if (Boolean.TRUE.equals(hoatDong)) {
+            return dichVuService.getByDangHoatDong();
+        }
+
+        return dichVuService.getAll();
     }
 
     /**
@@ -115,14 +118,5 @@ public class DichVuController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Integer id) {
         dichVuService.delete(id);
-    }
-
-    @GetMapping("/phan-trang")
-    public PageResponse<DichVuResponse> getPage(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Boolean hoatDong) {
-        return dichVuService.getPage(page, size, keyword, hoatDong);
     }
 }

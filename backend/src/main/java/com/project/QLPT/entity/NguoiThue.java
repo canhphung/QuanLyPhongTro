@@ -2,9 +2,6 @@ package com.project.QLPT.entity;
 
 import java.time.LocalDate;
 
-import jakarta.persistence.FetchType;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -28,12 +25,12 @@ import lombok.Setter;
  * </p>
  *
  * <p>
- * CCCD duy nhất trong phạm vi một chủ trọ.
+ * Mỗi người thuê được xác định duy nhất bởi CCCD.
  * </p>
  */
 @Entity
 @Table(name = "nguoi_thue", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_nguoi_thue_chu_tro_cccd", columnNames = {"chu_tro_id", "cccd"})
+        @UniqueConstraint(name = "uk_nguoi_thue_cccd", columnNames = "cccd")
 })
 @Getter
 @Setter
@@ -59,7 +56,7 @@ public class NguoiThue {
      * Số căn cước công dân của người thuê.
      *
      * <p>
-     * Giá trị này là duy nhất trong phạm vi chủ trọ.
+     * Giá trị này là duy nhất đối với mỗi người thuê.
      * </p>
      */
     @Column(name = "cccd", nullable = false, length = 20)
@@ -82,14 +79,4 @@ public class NguoiThue {
      */
     @Column(name = "dia_chi_thuong_tru", length = 500)
     private String diaChiThuongTru;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "chu_tro_id", nullable = false)
-    private ChuTro chuTro;
-
-    // Liên kết sau khi xác minh danh tính; không tự ghép theo CCCD/email.
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tai_khoan_id")
-    private TaiKhoan taiKhoan;
 }
-

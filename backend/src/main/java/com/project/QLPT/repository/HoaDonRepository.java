@@ -1,12 +1,17 @@
 package com.project.QLPT.repository;
 
+import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.util.List;
 
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.project.QLPT.entity.HoaDon;
 import com.project.QLPT.enums.TrangThaiHoaDon;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Repository truy cập dữ liệu cho {@link HoaDon}.
@@ -16,17 +21,7 @@ import com.project.QLPT.enums.TrangThaiHoaDon;
  * để đảm bảo ràng buộc duy nhất ở tầng nghiệp vụ.
  * </p>
  */
-public interface HoaDonRepository extends JpaRepository<HoaDon, Integer>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<HoaDon> {
-    interface RentRow {
-        Integer getInvoiceId();
-        java.math.BigDecimal getRent();
-    }
-
-    @org.springframework.data.jpa.repository.Query("""
-        select h.id as invoiceId, h.tienPhong as rent from HoaDon h
-        where h.hopDong.phong.nhaTro.chuTro.id = :ownerId
-        """)
-    List<RentRow> rentsForOwner(@org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
+public interface HoaDonRepository extends JpaRepository<HoaDon, Integer> {
 
     /**
      * Kiểm tra xem hợp đồng đã có hóa đơn cho kỳ thanh toán này chưa.
@@ -69,24 +64,19 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Integer>, org.sp
      */
     List<HoaDon> findByTrangThai(TrangThaiHoaDon trangThai);
 
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"hopDong", "hopDong.phong", "hopDong.phong.nhaTro"})
-    java.util.Optional<HoaDon> findByIdAndHopDong_Phong_NhaTro_ChuTro_Id(Integer id, Integer ownerId);
+    Optional<HoaDon> findByIdAndHopDong_Phong_NhaTro_ChuTro_Id(
+        Integer id,
+        Integer chuTroId
+    );
 
-    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
-    @org.springframework.data.jpa.repository.Query("select h from HoaDon h where h.id = :id and h.hopDong.phong.nhaTro.chuTro.id = :ownerId")
-    java.util.Optional<HoaDon> findOwnedForUpdate(
-        @org.springframework.data.repository.query.Param("id") Integer id,
-        @org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
-
-    @Override
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"hopDong", "hopDong.phong", "hopDong.phong.nhaTro"})
-    org.springframework.data.domain.Page<HoaDon> findAll(
-        org.springframework.data.jpa.domain.Specification<HoaDon> specification,
-        org.springframework.data.domain.Pageable pageable);
-
-    @Override
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"hopDong", "hopDong.phong", "hopDong.phong.nhaTro"})
-    java.util.List<HoaDon> findAll(
-        org.springframework.data.jpa.domain.Specification<HoaDon> specification,
-        org.springframework.data.domain.Sort sort);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+    SELECT h FROM HoaDon h
+    WHERE h.id = :id
+      AND h.hopDong.phong.nhaTro.chuTro.id = :chuTroId
+    """)
+    Optional<HoaDon> findOwnedForUpdate(
+        @Param("id") Integer id,
+        @Param("chuTroId") Integer chuTroId
+    );
 }

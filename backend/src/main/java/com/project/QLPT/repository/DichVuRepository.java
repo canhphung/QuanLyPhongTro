@@ -14,7 +14,7 @@ import com.project.QLPT.entity.DichVu;
  * hoạt động, phục vụ kiểm tra tính duy nhất và tìm kiếm.
  * </p>
  */
-public interface DichVuRepository extends JpaRepository<DichVu, Integer>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<DichVu> {
+public interface DichVuRepository extends JpaRepository<DichVu, Integer> {
 
     /**
      * Kiểm tra xem tên dịch vụ đã tồn tại hay chưa.
@@ -52,15 +52,4 @@ public interface DichVuRepository extends JpaRepository<DichVu, Integer>, org.sp
      * @return danh sách dịch vụ phù hợp với từ khóa
      */
     List<DichVu> findByTenDichVuContainingIgnoreCase(String tenDichVu);
-
-    java.util.Optional<DichVu> findByIdAndChuTro_Id(Integer id, Integer ownerId);
-
-    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
-    @org.springframework.data.jpa.repository.Query("select e from DichVu e where e.id = :id and e.chuTro.id = :ownerId")
-    java.util.Optional<DichVu> findOwnedForUpdate(
-        @org.springframework.data.repository.query.Param("id") Integer id,
-        @org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
-
-    boolean existsByChuTro_IdAndTenDichVu(Integer ownerId, String value);
-    boolean existsByChuTro_IdAndTenDichVuAndIdNot(Integer ownerId, String value, Integer id);
 }

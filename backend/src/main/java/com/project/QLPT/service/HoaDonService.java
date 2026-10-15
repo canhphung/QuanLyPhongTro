@@ -7,12 +7,6 @@ import java.time.YearMonth;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
-import java.util.Set;
-import org.springframework.data.domain.Sort;
-import com.project.QLPT.dto.response.PageResponse;
-import com.project.QLPT.repository.specification.OwnerSpecifications;
-import com.project.QLPT.service.support.PageSupport;
-import com.project.QLPT.service.support.InvoiceAmounts;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -54,9 +48,7 @@ import lombok.RequiredArgsConstructor;
 public class HoaDonService {
 
     private final HoaDonRepository hoaDonRepository;
-    private final OwnedContractAccess contracts;
-    private final OwnedInvoiceAccess invoices;
-    private final CurrentAccountService currentAccount;
+    private final HopDongRepository hopDongRepository;
     private final ChiTietHoaDonRepository chiTietHoaDonRepository;
     private final ThanhToanRepository thanhToanRepository;
 
@@ -123,7 +115,7 @@ public class HoaDonService {
             .trangThai(TrangThaiHoaDon.CHUA_THANH_TOAN)
             .build();
 
-        return toResponse(hoaDonRepository.saveAndFlush(entity), false);
+        return toResponse(hoaDonRepository.save(entity), false);
     }
 
     /**
@@ -147,8 +139,7 @@ public class HoaDonService {
     @Transactional(readOnly = true)
     public List<HoaDonResponse> getAll() {
 
-        return hoaDonRepository.findAll(OwnerSpecifications.hoaDon(
-                currentAccount.getChuTro().getId(), null, null, null), Sort.by("id"))
+        return hoaDonRepository.findAll()
                 .stream()
                 .map(entity -> toResponse(entity, false))
                 .toList();
@@ -164,8 +155,7 @@ public class HoaDonService {
     public List<HoaDonResponse> getByTrangThai(
             TrangThaiHoaDon trangThai) {
 
-        return hoaDonRepository.findAll(OwnerSpecifications.hoaDon(
-                currentAccount.getChuTro().getId(), null, null, trangThai), Sort.by("id"))
+        return hoaDonRepository.findByTrangThai(trangThai)
                 .stream()
                 .map(entity -> toResponse(entity, false))
                 .toList();
@@ -184,8 +174,7 @@ public class HoaDonService {
         findHopDong(hopDongId);
 
         return hoaDonRepository
-                .findAll(OwnerSpecifications.hoaDon(currentAccount.getChuTro().getId(),
-                    hopDongId, null, null), Sort.by(Sort.Direction.DESC, "kyThanhToan").and(Sort.by("id")))
+                .findByHopDong_IdOrderByKyThanhToanDesc(hopDongId)
                 .stream()
                 .map(entity -> toResponse(entity, false))
                 .toList();
@@ -280,7 +269,6 @@ public class HoaDonService {
 
         chiTietHoaDonRepository.deleteByHoaDon_Id(id);
         hoaDonRepository.delete(entity);
-        hoaDonRepository.flush();
     }
 
     /**
@@ -310,7 +298,9 @@ public class HoaDonService {
      */
     private HoaDon findEntity(Integer id) {
 
-        return invoices.get(id);
+        return hoaDonRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy hóa đơn id = " + id));
     }
 
     /**
@@ -322,7 +312,9 @@ public class HoaDonService {
      */
     private HopDong findHopDong(Integer id) {
 
-        return contracts.get(id);
+        return hopDongRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy hợp đồng id = " + id));
     }
 
     /**
@@ -335,18 +327,14 @@ public class HoaDonService {
     private HoaDonResponse toResponse(HoaDon entity, boolean withDetail) {
 
         // Luôn lấy đầy đủ chi tiết để tính tổng tiền.
-        var lines = chiTietHoaDonRepository.findByHoaDon_Id(entity.getId());
-        var ownerId = currentAccount.getChuTro().getId();
-        if (lines.stream().anyMatch(line -> !line.getDichVu().getChuTro().getId().equals(ownerId))) {
-            throw new BusinessException("Hóa đơn có dịch vụ không cùng chủ; cần đối soát dữ liệu");
-        }
-        List<ChiTietHoaDonResponse> tatCaChiTiet = lines.stream()
-                .map(this::toChiTietResponse).toList();
+        List<ChiTietHoaDonResponse> tatCaChiTiet =
+            chiTietHoaDonRepository
+                .findByHoaDon_Id(entity.getId())
+                .stream()
+                .map(this::toChiTietResponse)
+                .toList();
 
         BigDecimal tongTien = tinhTongTien(entity, tatCaChiTiet);
-        BigDecimal daThanhToan = thanhToanRepository.sumSoTienByHoaDonId(entity.getId());
-        if (daThanhToan == null) daThanhToan = BigDecimal.ZERO;
-        boolean coKhoanThu = thanhToanRepository.existsByHoaDon_Id(entity.getId());
 
         // Chỉ quyết định có trả chi tiết cho client hay không.
         List<ChiTietHoaDonResponse> chiTietTraVe =
@@ -362,11 +350,7 @@ public class HoaDonService {
             entity.getTienPhong(),
             tongTien,
             entity.getTrangThai(),
-            chiTietTraVe,
-            entity.getHopDong().getPhong().getNhaTro().getId(),
-            entity.getHopDong().getPhong().getNhaTro().getTenNhaTro(),
-            daThanhToan, tongTien.subtract(daThanhToan), coKhoanThu,
-            !coKhoanThu && entity.getTrangThai() == TrangThaiHoaDon.CHUA_THANH_TOAN);
+            chiTietTraVe);
     }
 
     /**
@@ -388,7 +372,7 @@ public class HoaDonService {
                 entity.getChiSoMoi(),
                 entity.getSoLuong(),
                 entity.getDonGia(),
-                tinhThanhTien(entity), entity.getDichVu().getTinhTheoChiSo());
+                tinhThanhTien(entity));
     }
 
     /**
@@ -406,8 +390,11 @@ public class HoaDonService {
             HoaDon entity,
             List<ChiTietHoaDonResponse> chiTietHoaDons) {
 
-        return InvoiceAmounts.total(entity.getTienPhong(),
-                chiTietHoaDons.stream().map(ChiTietHoaDonResponse::thanhTien).toList());
+        BigDecimal tongDichVu = chiTietHoaDons.stream()
+                .map(ChiTietHoaDonResponse::thanhTien)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return entity.getTienPhong().add(tongDichVu);
     }
 
     /**
@@ -418,12 +405,46 @@ public class HoaDonService {
      */
     private BigDecimal tinhThanhTien(ChiTietHoaDon entity) {
 
-        return InvoiceAmounts.lineTotal(entity.getSoLuong(), entity.getDonGia());
+        return entity.getSoLuong()
+                .multiply(entity.getDonGia())
+                .setScale(0, RoundingMode.HALF_UP);
     }
 
-    private HoaDon findHoaDonForUpdate(Integer id) { return invoices.lock(id); }
+    private HoaDon findHoaDonForUpdate(Integer id) {
 
-    private HopDong findHopDongForUpdate(Integer id) { return contracts.lock(id); }
+        HoaDon entity = entityManager.find(
+            HoaDon.class,
+            id,
+            LockModeType.PESSIMISTIC_WRITE);
+
+        if (entity == null) {
+            throw new ResourceNotFoundException(
+                "Không tìm thấy hóa đơn id = " + id);
+        }
+
+        // Đọc lại dữ liệu mới nhất sau khi lấy khóa.
+        entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
+
+        return entity;
+    }
+
+    private HopDong findHopDongForUpdate(Integer id) {
+        HopDong entity = entityManager.find(
+            HopDong.class,
+            id,
+            LockModeType.PESSIMISTIC_WRITE
+        );
+
+        if (entity == null) {
+            throw new ResourceNotFoundException(
+                "Không tìm thấy hợp đồng id = " + id
+            );
+        }
+
+        entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
+
+        return entity;
+    }
 
     private LocalDate validateKyThanhToan(
         HopDong hopDong,
@@ -503,15 +524,5 @@ public class HoaDonService {
         return tienPhongNhap != null
             ? tienPhongNhap
             : hopDong.getGiaThueThoaThuan();
-    }
-
-    @Transactional(readOnly = true)
-    public PageResponse<HoaDonResponse> getPage(int page, int size, String keyword,
-            TrangThaiHoaDon trangThai, Integer hopDongId) {
-        var pageable = PageSupport.pageable(page, size, "id", "desc", Set.of("id"));
-        if (hopDongId != null) contracts.get(hopDongId);
-        return PageSupport.response(hoaDonRepository.findAll(OwnerSpecifications.hoaDon(
-            currentAccount.getChuTro().getId(), hopDongId, keyword, trangThai), pageable),
-            invoice -> toResponse(invoice, false));
     }
 }

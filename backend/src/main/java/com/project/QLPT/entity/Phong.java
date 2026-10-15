@@ -4,9 +4,6 @@ import java.math.BigDecimal;
 
 import com.project.QLPT.enums.TrangThaiPhong;
 
-import jakarta.persistence.FetchType;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -22,13 +19,17 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.FetchType;
+
 @Entity
 @Table(
     name = "phong",
     uniqueConstraints = {
         @UniqueConstraint(
-            name = "uk_phong_nha_tro_so_phong",
-            columnNames = {"nha_tro_id", "so_phong"}
+            name = "uk_phong_so_phong",
+            columnNames = "so_phong"
         )
     }
 )
@@ -70,4 +71,3 @@ public class Phong {
     @JoinColumn(name = "nha_tro_id", nullable = false)
     private NhaTro nhaTro;
 }
-

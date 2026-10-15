@@ -1,7 +1,6 @@
 package com.project.QLPT.controller;
 
 import java.util.List;
-import com.project.QLPT.dto.response.PageResponse;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -107,13 +106,5 @@ public class NguoiThueController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Integer id) {
         nguoiThueService.delete(id);
-    }
-
-    @GetMapping("/phan-trang")
-    public PageResponse<NguoiThueResponse> getPage(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String keyword) {
-        return nguoiThueService.getPage(page, size, keyword);
     }
 }

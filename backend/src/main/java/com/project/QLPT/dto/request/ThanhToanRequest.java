@@ -7,6 +7,7 @@ import com.project.QLPT.enums.PhuongThucThanhToan;
 
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
@@ -14,7 +15,8 @@ public record ThanhToanRequest(
         @NotNull(message = "Mã hóa đơn không được để trống")
         @Positive(message = "Mã hóa đơn phải lớn hơn 0") Integer hoaDonId,
 
-        // Không gửi ngày thì service dùng hiện tại; kiểm tra tương lai theo Asia/Ho_Chi_Minh tại service.
+        // Không gửi ngày thì service dùng thời điểm hiện tại.
+        @PastOrPresent(message = "Ngày thanh toán không được nằm trong tương lai")
         LocalDateTime ngayThanhToan,
 
         @NotNull(message = "Số tiền không được để trống")

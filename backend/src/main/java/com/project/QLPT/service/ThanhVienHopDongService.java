@@ -15,6 +15,7 @@ import com.project.QLPT.entity.id.ThanhVienHopDongId;
 import com.project.QLPT.enums.TrangThaiHopDong;
 import com.project.QLPT.exception.BusinessException;
 import com.project.QLPT.exception.ResourceNotFoundException;
+import com.project.QLPT.repository.HopDongRepository;
 import com.project.QLPT.repository.NguoiThueRepository;
 import com.project.QLPT.repository.ThanhVienHopDongRepository;
 
@@ -26,19 +27,16 @@ import jakarta.persistence.PersistenceContext;
 public class ThanhVienHopDongService {
 
     private final ThanhVienHopDongRepository thanhVienHopDongRepository;
-    private final OwnedContractAccess access;
-    private final CurrentAccountService currentAccount;
+    private final HopDongRepository hopDongRepository;
     private final NguoiThueRepository nguoiThueRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     public ThanhVienHopDongService(ThanhVienHopDongRepository thanhVienHopDongRepository,
-            OwnedContractAccess access, CurrentAccountService currentAccount,
-            NguoiThueRepository nguoiThueRepository) {
+            HopDongRepository hopDongRepository, NguoiThueRepository nguoiThueRepository) {
         this.thanhVienHopDongRepository = thanhVienHopDongRepository;
-        this.access = access;
-        this.currentAccount = currentAccount;
+        this.hopDongRepository = hopDongRepository;
         this.nguoiThueRepository = nguoiThueRepository;
     }
 
@@ -64,14 +62,15 @@ public class ThanhVienHopDongService {
                 .laDaiDien(request.laDaiDien())
                 .build();
 
-        return toResponse(thanhVienHopDongRepository.saveAndFlush(entity));
+        return toResponse(thanhVienHopDongRepository.save(entity));
     }
 
     @Transactional(readOnly = true)
     public List<ThanhVienHopDongResponse> getByHopDong(Integer hopDongId, boolean dangO) {
         findHopDong(hopDongId);
-        List<ThanhVienHopDong> entities = thanhVienHopDongRepository.findOwnedMembers(
-                hopDongId, currentAccount.getChuTro().getId(), dangO);
+        List<ThanhVienHopDong> entities = dangO
+                ? thanhVienHopDongRepository.findByHopDong_IdAndNgayRoiIsNullOrderByNgayVaoAsc(hopDongId)
+                : thanhVienHopDongRepository.findByHopDong_IdOrderByNgayVaoAsc(hopDongId);
         return entities.stream().map(this::toResponse).toList();
     }
 
@@ -91,7 +90,6 @@ public class ThanhVienHopDongService {
             throw new BusinessException("Không thể đổi người thuê của thành viên hợp đồng");
         }
 
-        findNguoiThue(nguoiThueId);
         ThanhVienHopDong entity = findEntity(hopDongId, nguoiThueId);
         validateDaiDien(hopDongId, nguoiThueId, request);
         entity.setNgayVao(request.ngayVao());
@@ -105,9 +103,7 @@ public class ThanhVienHopDongService {
     public void delete(Integer hopDongId, Integer nguoiThueId) {
         HopDong hopDong = findHopDongForUpdate(hopDongId);
         validateDangHieuLuc(hopDong);
-        findNguoiThue(nguoiThueId);
         thanhVienHopDongRepository.delete(findEntity(hopDongId, nguoiThueId));
-        thanhVienHopDongRepository.flush();
     }
 
     private void validateRequest(HopDong hopDong, ThanhVienHopDongRequest request) {
@@ -150,22 +146,41 @@ public class ThanhVienHopDongService {
         }
     }
 
-    private HopDong findHopDong(Integer id) { return access.get(id); }
+    private HopDong findHopDong(Integer id) {
+        return hopDongRepository.findById(id).orElseThrow(
+                () -> new ResourceNotFoundException("Không tìm thấy hợp đồng id = " + id));
+    }
 
-    private HopDong findHopDongForUpdate(Integer id) { return access.lock(id); }
+    private HopDong findHopDongForUpdate(Integer id) {
+        HopDong entity = entityManager.find(
+            HopDong.class,
+            id,
+            LockModeType.PESSIMISTIC_WRITE
+        );
+
+        if (entity == null) {
+            throw new ResourceNotFoundException(
+                "Không tìm thấy hợp đồng id = " + id
+            );
+        }
+
+        entityManager.refresh(
+            entity,
+            LockModeType.PESSIMISTIC_WRITE
+        );
+
+        return entity;
+    }
 
     private NguoiThue findNguoiThue(Integer id) {
-        // Sau khóa phòng/hợp đồng, khóa hồ sơ người để tránh xóa hồ sơ đồng thời.
-        var tenant = nguoiThueRepository.findOwnedForUpdate(id, currentAccount.getChuTro().getId())
-            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người thuê"));
-        entityManager.refresh(tenant, LockModeType.PESSIMISTIC_WRITE);
-        return tenant;
+        return nguoiThueRepository.findById(id).orElseThrow(
+                () -> new ResourceNotFoundException("Không tìm thấy người thuê id = " + id));
     }
 
     private ThanhVienHopDong findEntity(Integer hopDongId, Integer nguoiThueId) {
-        return thanhVienHopDongRepository.findOwnedMember(hopDongId, nguoiThueId,
-                currentAccount.getChuTro().getId())
-            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên"));
+        return thanhVienHopDongRepository.findById(new ThanhVienHopDongId(hopDongId, nguoiThueId))
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy người thuê id = " + nguoiThueId + " trong hợp đồng id = " + hopDongId));
     }
 
     private ThanhVienHopDongResponse toResponse(ThanhVienHopDong entity) {

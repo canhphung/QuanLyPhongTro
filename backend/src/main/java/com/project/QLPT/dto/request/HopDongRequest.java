@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 
@@ -20,7 +19,6 @@ import jakarta.validation.constraints.PositiveOrZero;
 public record HopDongRequest(
 
     @NotNull(message = "Phòng không được để trống")
-    @Positive(message = "Phòng không hợp lệ")
     Integer phongId,
 
     @NotNull(message = "Ngày bắt đầu không được để trống")
@@ -31,12 +29,10 @@ public record HopDongRequest(
 
     @NotNull(message = "Giá thuê thỏa thuận không được để trống")
     @Positive(message = "Giá thuê thỏa thuận phải lớn hơn 0")
-    @Digits(integer = 19, fraction = 0)
     BigDecimal giaThueThoaThuan,
 
     @NotNull(message = "Tiền cọc không được để trống")
     @PositiveOrZero(message = "Tiền cọc không được âm")
-    @Digits(integer = 19, fraction = 0)
     BigDecimal tienCoc
 ) {
 

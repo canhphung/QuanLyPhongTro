@@ -6,7 +6,6 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import jakarta.validation.constraints.Digits;
 
 /**
  * DTO chứa dữ liệu yêu cầu khi tạo mới hoặc cập nhật một dịch vụ.
@@ -31,7 +30,7 @@ public record DichVuRequest(
 
                 @NotBlank(message = "Đơn vị tính không được để trống") @Size(max = 50, message = "Đơn vị tính tối đa 50 ký tự") String donViTinh,
 
-                @NotNull(message = "Đơn giá không được để trống") @DecimalMin(value = "0", message = "Đơn giá không được là số âm") @Digits(integer = 19, fraction = 0) BigDecimal donGiaHienTai,
+                @NotNull(message = "Đơn giá không được để trống") @DecimalMin(value = "0", message = "Đơn giá không được là số âm") BigDecimal donGiaHienTai,
 
                 @NotNull(message = "Phải chọn kiểu tính: theo chỉ số hay theo số lượng") Boolean tinhTheoChiSo,
 

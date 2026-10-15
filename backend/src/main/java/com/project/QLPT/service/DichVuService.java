@@ -1,13 +1,6 @@
 package com.project.QLPT.service;
 
 import java.util.List;
-import java.util.Set;
-import org.springframework.data.domain.Sort;
-import org.springframework.transaction.annotation.Isolation;
-import com.project.QLPT.dto.response.PageResponse;
-import com.project.QLPT.repository.specification.OwnerSpecifications;
-import com.project.QLPT.service.support.PageSupport;
-import jakarta.persistence.*;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +20,7 @@ import lombok.RequiredArgsConstructor;
  *
  * <p>
  * Cung cấp chức năng tạo mới, truy vấn, cập nhật, tìm kiếm và xóa dịch vụ.
- * Tên dịch vụ được chuẩn hóa loại bỏ khoảng trắng thừa và phải là duy nhất trong dữ liệu của chủ trọ.
+ * Tên dịch vụ được chuẩn hóa loại bỏ khoảng trắng thừa và phải là duy nhất.
  * Không cho phép xóa dịch vụ đã được sử dụng trong bất kỳ hóa đơn nào.
  * </p>
  */
@@ -36,8 +29,6 @@ import lombok.RequiredArgsConstructor;
 public class DichVuService {
 
     private final DichVuRepository dichVuRepository;
-    private final CurrentAccountService currentAccount;
-    @PersistenceContext private EntityManager entityManager;
     private final ChiTietHoaDonRepository chiTietHoaDonRepository;
 
     /**
@@ -45,7 +36,7 @@ public class DichVuService {
      *
      * <p>
      * Tên dịch vụ được chuẩn hóa bằng cách loại bỏ khoảng trắng thừa ở hai
-     * đầu và phải là duy nhất trong dữ liệu của chủ trọ.
+     * đầu và phải là duy nhất trong hệ thống.
      * </p>
      *
      * @param request thông tin dịch vụ cần tạo
@@ -54,15 +45,14 @@ public class DichVuService {
      */
     @Transactional
     public DichVuResponse create(DichVuRequest request) {
-        var owner = currentAccount.getChuTro();
 
         String tenDichVu = request.tenDichVu().trim();
 
-        if (dichVuRepository.existsByChuTro_IdAndTenDichVu(owner.getId(), tenDichVu)) {
+        if (dichVuRepository.existsByTenDichVu(tenDichVu)) {
             throw new BusinessException("Tên dịch vụ đã tồn tại");
         }
 
-        DichVu entity = DichVu.builder().chuTro(owner)
+        DichVu entity = DichVu.builder()
                 .tenDichVu(tenDichVu)
                 .donViTinh(request.donViTinh().trim())
                 .donGiaHienTai(request.donGiaHienTai())
@@ -71,7 +61,7 @@ public class DichVuService {
                 .build();
 
         return toResponse(
-                dichVuRepository.saveAndFlush(entity));
+                dichVuRepository.save(entity));
     }
 
     /**
@@ -95,7 +85,7 @@ public class DichVuService {
     @Transactional(readOnly = true)
     public List<DichVuResponse> getAll() {
 
-        return dichVuRepository.findAll(OwnerSpecifications.dichVu(currentAccount.getChuTro().getId(), null, null), Sort.by("id"))
+        return dichVuRepository.findAll()
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -109,7 +99,7 @@ public class DichVuService {
     @Transactional(readOnly = true)
     public List<DichVuResponse> getByDangHoatDong() {
 
-        return dichVuRepository.findAll(OwnerSpecifications.dichVu(currentAccount.getChuTro().getId(), null, true), Sort.by("id"))
+        return dichVuRepository.findByDangHoatDongTrue()
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -120,7 +110,7 @@ public class DichVuService {
      *
      * <p>
      * Dịch vụ phải tồn tại và tên mới không được trùng với tên của dịch vụ
-     * khác trong dữ liệu của chủ trọ.
+     * khác trong hệ thống.
      * </p>
      *
      * @param id      ID của dịch vụ cần cập nhật
@@ -130,29 +120,24 @@ public class DichVuService {
      * @throws BusinessException         nếu tên dịch vụ đã được sử dụng bởi
      *                                   dịch vụ khác
      */
-    @Transactional(isolation = Isolation.READ_COMMITTED)
+    @Transactional
     public DichVuResponse update(Integer id, DichVuRequest request) {
 
-        DichVu entity = ownedForUpdate(id);
+        DichVu entity = findEntity(id);
 
         String tenDichVu = request.tenDichVu().trim();
 
         if (dichVuRepository
-                .existsByChuTro_IdAndTenDichVuAndIdNot(currentAccount.getChuTro().getId(), tenDichVu, id)) {
+                .existsByTenDichVuAndIdNot(tenDichVu, id)) {
             throw new BusinessException("Tên dịch vụ đã tồn tại");
         }
 
         entity.setTenDichVu(tenDichVu);
         entity.setDonViTinh(request.donViTinh().trim());
         entity.setDonGiaHienTai(request.donGiaHienTai());
-        if (!entity.getTinhTheoChiSo().equals(request.tinhTheoChiSo())
-                && chiTietHoaDonRepository.existsByDichVu_Id(id)) {
-            throw new BusinessException("Không đổi kiểu tính dịch vụ đã dùng trong hóa đơn; hãy tạo dịch vụ mới");
-        }
         entity.setTinhTheoChiSo(request.tinhTheoChiSo());
         entity.setDangHoatDong(request.dangHoatDong());
 
-        dichVuRepository.flush();
         return toResponse(entity);
     }
 
@@ -170,7 +155,7 @@ public class DichVuService {
     public List<DichVuResponse> searchByName(String keyword) {
 
         return dichVuRepository
-                .findAll(OwnerSpecifications.dichVu(currentAccount.getChuTro().getId(), keyword, null), Sort.by("id"))
+                .findByTenDichVuContainingIgnoreCase(keyword.trim())
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -188,10 +173,10 @@ public class DichVuService {
      * @throws BusinessException         nếu dịch vụ đã được dùng trong hóa
      *                                   đơn
      */
-    @Transactional(isolation = Isolation.READ_COMMITTED)
+    @Transactional
     public void delete(Integer id) {
 
-        DichVu entity = ownedForUpdate(id);
+        DichVu entity = findEntity(id);
 
         if (chiTietHoaDonRepository.existsByDichVu_Id(id)) {
             throw new BusinessException(
@@ -199,7 +184,6 @@ public class DichVuService {
         }
 
         dichVuRepository.delete(entity);
-        dichVuRepository.flush();
     }
 
     /**
@@ -211,7 +195,7 @@ public class DichVuService {
      */
     private DichVu findEntity(Integer id) {
 
-        return dichVuRepository.findByIdAndChuTro_Id(id, currentAccount.getChuTro().getId())
+        return dichVuRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Không tìm thấy dịch vụ id = " + id));
     }
@@ -231,26 +215,5 @@ public class DichVuService {
                 entity.getDonGiaHienTai(),
                 entity.getTinhTheoChiSo(),
                 entity.getDangHoatDong());
-    }
-
-    private DichVu ownedForUpdate(Integer id) {
-        var entity = dichVuRepository.findOwnedForUpdate(id, currentAccount.getChuTro().getId())
-            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dịch vụ"));
-        entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
-        return entity;
-    }
-
-    @Transactional(readOnly = true)
-    public PageResponse<DichVuResponse> getPage(int page, int size, String keyword, Boolean hoatDong) {
-        var pageable = PageSupport.pageable(page, size, "id", "asc", Set.of("id"));
-        return PageSupport.response(dichVuRepository.findAll(OwnerSpecifications.dichVu(
-            currentAccount.getChuTro().getId(), keyword, hoatDong), pageable), this::toResponse);
-    }
-
-    @Transactional(readOnly = true)
-    public List<DichVuResponse> getByHoatDong(Boolean hoatDong) {
-        return dichVuRepository.findAll(OwnerSpecifications.dichVu(
-            currentAccount.getChuTro().getId(), null, hoatDong), Sort.by("id"))
-            .stream().map(this::toResponse).toList();
     }
 }

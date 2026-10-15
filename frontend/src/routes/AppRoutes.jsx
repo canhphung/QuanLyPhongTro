@@ -1,42 +1,115 @@
-import TinDangPage from "../pages/owner/TinDang/TinDangPage";
-import AdminTinDangPage from "../pages/admin/TinDang/AdminTinDangPage";
-import RequireAdmin from "./RequireAdmin";
-import AdminLayout from "../components/layout/admin/AdminLayout";
-import { Navigate, Routes, Route } from "react-router-dom";
-import HomeRedirect from "./HomeRedirect";
-import TaiKhoanPage from "../pages/auth/TaiKhoanPage";
-import OwnerLayout from "../components/layout/owner/OwnerLayout.jsx";
-import RequireOwner from "./RequireOwner";
-import PhongPage from "../pages/owner/Phong/PhongPage";
-import NguoiThuePage from "../pages/owner/NguoiThue/NguoiThuePage";
-import HoaDonPage from "../pages/owner/HoaDon/HoaDonPage";
-import HopDongPage from "../pages/owner/HopDong/HopDongPage";
-import DichVuPage from "../pages/owner/DichVu/DichVuPage";
+import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
+import PublicLayout, { ScrollToTop } from "../experience/PublicLayout";
+import HomePage from "../experience/HomePage";
+import { RoomSearchPage, RoomDetailPage } from "../experience/ExplorePages";
+import {
+  AuthPage,
+  RequireAccount,
+  AccountLayout,
+  ProfilePage,
+  MyRequestsPage,
+  MyContractsPage,
+  MyInvoicesPage,
+  MyPaymentsPage,
+} from "../experience/AccountPages";
+import { OwnerLayout, OwnerDashboard } from "../experience/OwnerPages";
+import OwnerCollectionPage from "../experience/OwnerCollection";
+import { ApiProvider } from "../experience/ApiProvider";
+import { EmptyState } from "../experience/ui";
 
-import ThanhToanPage from "../pages/owner/ThanhToan/ThanhToanPage";
-import DashboardPage from "../pages/owner/Dashboard/DashboardPage";
-
-export default function AppRoutes() {
+const collections = [
+  "nha-tro",
+  "phong",
+  "nguoi-thue",
+  "dich-vu",
+  "hop-dong",
+  "hoa-don",
+  "thanh-toan",
+  "tin-dang",
+];
+function NotFound() {
   return (
-    <Routes>
-      <Route path="/" element={<HomeRedirect />} />
-      <Route path="/tai-khoan" element={<TaiKhoanPage />} />
-      <Route element={<RequireOwner />}>
-        <Route element={<OwnerLayout />}>
-          <Route path="/tin-dang" element={<TinDangPage />} />
-          <Route path="/phong" element={<PhongPage />} />
-          <Route path="/nguoi-thue" element={<NguoiThuePage />} />
-          <Route path="/dich-vu" element={<DichVuPage />} />
-          <Route path="/hop-dong" element={<HopDongPage />} />
-          <Route path="/hoa-don" element={<HoaDonPage />} />
-          <Route path="/thanh-toan" element={<ThanhToanPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
+    <div className="page-container not-found">
+      <EmptyState
+        title="Mình đi lạc một chút rồi"
+        message="Trang này không còn ở đây. Quay lại để tìm một căn phòng nhé."
+        action={
+          <Link className="button" to="/">
+            Về trang chủ
+          </Link>
+        }
+      />
+    </div>
+  );
+}
+export default function AppRoutes() {
+  const { search } = useLocation();
+  return (
+    <ApiProvider>
+      <ScrollToTop />
+      <Routes>
+        <Route element={<PublicLayout />}>
+          <Route index element={<HomePage />} />
+          <Route path="tim-phong" element={<RoomSearchPage />} />
+          <Route path="yeu-thich" element={<RoomSearchPage savedOnly />} />
+          <Route path="phong-tro/:id" element={<RoomDetailPage />} />
+          <Route path="dang-nhap" element={<AuthPage />} />
+          <Route path="dang-ky" element={<AuthPage register />} />
+          <Route
+            path="tai-khoan"
+            element={
+              <RequireAccount>
+                <AccountLayout />
+              </RequireAccount>
+            }
+          >
+            <Route index element={<ProfilePage />} />
+            <Route path="yeu-cau" element={<MyRequestsPage />} />
+            <Route path="hop-dong" element={<MyContractsPage />} />
+            <Route path="hoa-don" element={<MyInvoicesPage />} />
+            <Route path="thanh-toan" element={<MyPaymentsPage />} />
+          </Route>
+          <Route path="*" element={<NotFound />} />
         </Route>
-      </Route>
-      <Route element={<RequireAdmin />}><Route element={<AdminLayout />}>
-        <Route path="/admin/tin-dang" element={<AdminTinDangPage />} />
-      </Route></Route>
-      <Route path="*" element={<Navigate to="/tai-khoan" replace />} />
-    </Routes>
+        <Route
+          path="chu-tro"
+          element={
+            <RequireAccount owner>
+              <OwnerLayout />
+            </RequireAccount>
+          }
+        >
+          <Route index element={<Navigate to="tong-quan" replace />} />
+          <Route path="tong-quan" element={<OwnerDashboard />} />
+          {collections.map((section) => (
+            <Route
+              path={section}
+              key={section}
+              element={
+                <OwnerCollectionPage
+                  key={`${section}-${search}`}
+                  section={section}
+                />
+              }
+            />
+          ))}
+          <Route path="*" element={<NotFound />} />
+        </Route>
+        {[
+          "phong",
+          "nguoi-thue",
+          "hop-dong",
+          "hoa-don",
+          "dich-vu",
+          "thanh-toan",
+        ].map((path) => (
+          <Route
+            key={path}
+            path={path}
+            element={<Navigate to={`/chu-tro/${path}`} replace />}
+          />
+        ))}
+      </Routes>
+    </ApiProvider>
   );
 }
