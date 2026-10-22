@@ -82,6 +82,14 @@ public class ExperienceController {
     return accounts.invite(accounts.currentId(), tenant);
   }
 
+  @PostMapping(
+      value = "/owner/upload",
+      consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+  public Map<String, Object> upload(
+      @RequestParam("files") org.springframework.web.multipart.MultipartFile[] files) {
+    return Map.of("urls", app.uploadImages(files));
+  }
+
   @PostMapping("/owner/{kind}")
   public void create(
       HttpServletRequest r, @PathVariable String kind, @RequestBody Map<String, Object> d) {

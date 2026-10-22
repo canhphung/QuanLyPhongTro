@@ -37,6 +37,7 @@ public class ExperienceService {
   private final ChiTietHoaDonService lines;
   private final Validator validator;
   private final EntityManager em;
+  private final com.project.QLPT.service.UploadService uploads;
   private static final String ROOM_SELECT =
       """
 SELECT p.id,p.id roomId,p.so_phong number,p.dien_tich area,p.gia_thue price,
@@ -98,6 +99,10 @@ JOIN tai_khoan a ON a.id=c.tai_khoan_id LEFT JOIN tin_dang l ON l.phong_id=p.id
         .map(String::trim)
         .filter(v -> !v.isBlank())
         .toList();
+  }
+
+  public List<String> uploadImages(org.springframework.web.multipart.MultipartFile[] files) {
+    return uploads.storeImages(files);
   }
 
   public List<Map<String, Object>> catalog() {

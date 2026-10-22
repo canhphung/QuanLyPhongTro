@@ -38,7 +38,7 @@ export function RoomPhoto({
 }) {
   const [failedPhoto, setFailedPhoto] = useState(null);
   const failed = !!photo && failedPhoto === photo;
-  const valid = typeof photo === "string" && /^https:\/\//.test(photo);
+  const valid = typeof photo === "string" && photo.trim().length > 0 && (/^https?:\/\//i.test(photo) || photo.startsWith("/") || photo.startsWith("data:"));
   return (
     <div
       className={`room-photo ${className} ${!valid || failed ? "photo-placeholder" : ""}`}

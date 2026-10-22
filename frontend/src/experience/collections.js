@@ -181,7 +181,7 @@ export const schemas = {
     key: "listings",
     title: "Tin đăng",
     subtitle:
-      "Gửi duyệt để công khai tin. Phòng phải trống và có ít nhất một ảnh HTTPS.",
+      "Tải ảnh từ thư viện máy lên hoặc nhập link ảnh. Gửi quản trị viên duyệt để công khai hiển thị trên trang chủ.",
     singular: "tin đăng",
     columns: [
       ["title", "Tiêu đề"],
@@ -202,7 +202,7 @@ export const schemas = {
       },
       {
         key: "images",
-        label: "Đường dẫn ảnh HTTPS (mỗi dòng một ảnh, tối đa 10)",
+        label: "Hình ảnh phòng (tải từ máy hoặc link ảnh, tối đa 10)",
         type: "textarea",
         optional: true,
       },

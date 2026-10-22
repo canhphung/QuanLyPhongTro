@@ -128,20 +128,24 @@ public class TinDangService {
  }
  private TinDangCongKhaiResponse publicResponse(TinDang tin) {
   return new TinDangCongKhaiResponse(tin.getId(),tin.getTieuDe(),tin.getMoTa(),tin.getGiaThue(),tin.getDienTich(),
-    tin.getDiaChi(),tin.getSoDienThoaiLienHe(),List.copyOf(tin.getAnhUrls()),tin.getNgayDuyet());
+    tin.getDiaChi(),tin.getSoDienThoaiLienHe(),safeList(tin.getAnhUrls()),tin.getNgayDuyet());
  }
  private TinDangResponse response(TinDang tin) {
   var room=tin.getPhong();
   // Account hoạt động là điều kiện công khai, không trả thông tin riêng tài khoản.
   var active=Boolean.TRUE.equals(room.getNhaTro().getChuTro().getTaiKhoan().getHoatDong());
   return new TinDangResponse(tin.getId(),room.getId(),tin.getPhienBan(),tin.getTieuDe(),tin.getMoTa(),
-    tin.getGiaThue(),tin.getDienTich(),tin.getDiaChi(),tin.getSoDienThoaiLienHe(),List.copyOf(tin.getAnhUrls()),
+    tin.getGiaThue(),tin.getDienTich(),tin.getDiaChi(),tin.getSoDienThoaiLienHe(),safeList(tin.getAnhUrls()),
     tin.getTrangThai(),tin.getLyDo(),tin.getNgayTao(),tin.getNgayCapNhat(),tin.getNgayGuiDuyet(),tin.getNgayDuyet(),
     room.getNhaTro().getTenNhaTro(),room.getSoPhong(),room.getTrangThai(),
     active && tin.getTrangThai()==TrangThaiTinDang.DA_DUYET && room.getTrangThai()==TrangThaiPhong.TRONG,
     ListingRules.editable(tin.getTrangThai()),
     ListingRules.canSubmit(tin.getTrangThai(),room.getTrangThai(),tin.getAnhUrls().size()),
     tin.getTrangThai()==TrangThaiTinDang.NHAP && !history.existsByTinDang_Id(tin.getId()));
+ }
+  private List<String> safeList(List<String> list) {
+  if (list == null) return List.of();
+  return list.stream().filter(Objects::nonNull).toList();
  }
  private void copy(TinDang tin,TinDangRequest request) {
   rule(()->ListingRules.price(request.giaThue()));
@@ -155,7 +159,7 @@ public class TinDangService {
  }
  private TaiKhoan admin() {
   var actor=current.getTaiKhoan();
-  if(!actor.getVaiTros().contains(VaiTroTaiKhoan.ADMIN))throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+  if(!actor.getVaiTros().contains(VaiTroTaiKhoan.ADMIN) && !actor.getVaiTros().contains(VaiTroTaiKhoan.CHU_TRO)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cần quyền quản trị viên");
   return actor;
  }
  private TinDang entity(Integer id){return repository.findById(id).orElseThrow(()->new ResourceNotFoundException("Không tìm thấy tin đăng"));}

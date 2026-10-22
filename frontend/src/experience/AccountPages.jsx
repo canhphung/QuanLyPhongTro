@@ -206,7 +206,7 @@ export function RequireAccount({ owner = false, admin = false, children }) {
         replace
       />
     );
-  if (admin && !user.roles?.includes("ADMIN"))
+  if (admin && !user.roles?.includes("ADMIN") && !user.roles?.includes("CHU_TRO"))
     return (
       <div className="page-container">
         <EmptyState

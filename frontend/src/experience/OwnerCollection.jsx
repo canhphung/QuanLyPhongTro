@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Plus,
@@ -8,12 +8,169 @@ import {
   FileText,
   ArrowDownToLine,
   KeyRound,
+  Upload,
+  Image as ImageIcon,
+  X,
 } from "lucide-react";
 import { useAppData } from "./context";
 import { PageTitle, EmptyState, Status, Modal } from "./ui";
 import { InvoiceModal, ContractModal } from "./BusinessDetails";
 import { schemas, optionsFor } from "./collections";
 import { money, displayDate, TODAY_INPUT } from "./data";
+
+function ImageUploadField({ field, initialValue }) {
+  const data = useAppData();
+  const [images, setImages] = useState(() => {
+    if (!initialValue) return [];
+    if (Array.isArray(initialValue)) return initialValue;
+    return String(initialValue)
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  });
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [manualUrl, setManualUrl] = useState("");
+  const [showManual, setShowManual] = useState(false);
+  const fileInputRef = useRef(null);
+
+  async function handleFileChange(e) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    if (images.length + files.length > 10) {
+      setUploadError("Tối đa 10 ảnh cho mỗi tin đăng. Vui lòng chỉ chọn tối đa " + (10 - images.length) + " ảnh nữa.");
+      e.target.value = "";
+      return;
+    }
+    setUploading(true);
+    setUploadError("");
+    try {
+      const uploadedUrls = await data.uploadFiles(files);
+      setImages((prev) => [...prev, ...uploadedUrls].slice(0, 10));
+    } catch (err) {
+      setUploadError(err.message || "Tải ảnh thất bại.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  function handleRemove(index) {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleAddManual(e) {
+    e.preventDefault();
+    const url = manualUrl.trim();
+    if (!url) return;
+    if (images.length >= 10) {
+      setUploadError("Đã đạt tối đa 10 ảnh.");
+      return;
+    }
+    if (images.includes(url)) {
+      setUploadError("Ảnh này đã có trong danh sách.");
+      return;
+    }
+    setImages((prev) => [...prev, url]);
+    setManualUrl("");
+    setUploadError("");
+  }
+
+  return (
+    <div className="field field-wide image-upload-section">
+      <div className="image-upload-header">
+        <div className="image-upload-label">
+          <span>{field.label}</span>
+          <span className="image-count-badge">({images.length}/10 ảnh)</span>
+        </div>
+        <button
+          type="button"
+          className="text-button text-sm"
+          onClick={() => setShowManual((v) => !v)}
+        >
+          {showManual ? "Ẩn nhập link ảnh" : "+ Nhập link ảnh HTTPS"}
+        </button>
+      </div>
+
+      <input type="hidden" name={field.key} value={images.join("\n")} />
+
+      <div className="upload-actions-bar">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: "none" }}
+          onChange={handleFileChange}
+          disabled={uploading || images.length >= 10}
+        />
+        <button
+          type="button"
+          className="upload-btn"
+          disabled={uploading || images.length >= 10}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Upload size={18} />
+          {uploading
+            ? "Đang tải ảnh từ máy lên…"
+            : images.length >= 10
+              ? "Đã đạt tối đa 10 ảnh"
+              : "Tải ảnh từ thư viện máy lên"}
+        </button>
+        <span className="upload-hint">
+          Hỗ trợ chọn nhiều ảnh cùng lúc (PNG, JPG, WEBP). Có xem trước (preview) và lưu vào database.
+        </span>
+      </div>
+
+      {showManual && (
+        <div className="manual-url-box">
+          <input
+            type="url"
+            placeholder="Dán đường dẫn ảnh HTTPS vào đây…"
+            value={manualUrl}
+            onChange={(e) => setManualUrl(e.target.value)}
+            disabled={images.length >= 10}
+          />
+          <button
+            type="button"
+            className="button button-soft"
+            onClick={handleAddManual}
+            disabled={!manualUrl.trim() || images.length >= 10}
+          >
+            Thêm ảnh
+          </button>
+        </div>
+      )}
+
+      {uploadError && <p className="form-error mt-1" role="alert">{uploadError}</p>}
+
+      {/* Preview thumbnails gallery */}
+      {images.length > 0 ? (
+        <div className="image-preview-grid">
+          {images.map((url, idx) => (
+            <div key={idx} className="image-preview-card">
+              <img src={url} alt={"Ảnh " + (idx + 1)} />
+              {idx === 0 && <span className="cover-badge">★ Ảnh chính</span>}
+              <button
+                type="button"
+                className="remove-img-btn"
+                title="Xóa ảnh này"
+                onClick={() => handleRemove(idx)}
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="image-preview-empty">
+          <ImageIcon size={32} strokeWidth={1.5} />
+          <span>Chưa có ảnh nào. Bấm nút <strong>"Tải ảnh từ thư viện máy lên"</strong> ở trên để thêm ảnh và xem trước preview.</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function RecordForm({ schema, record, onClose }) {
   const data = useAppData();
@@ -60,6 +217,15 @@ function RecordForm({ schema, record, onClose }) {
           {schema.fields
             .filter((f) => !record || !f.createOnly)
             .map((f) => {
+              if (f.key === "images") {
+                return (
+                  <ImageUploadField
+                    key={f.key}
+                    field={f}
+                    initialValue={initial(f)}
+                  />
+                );
+              }
               const options = f.type === "select" ? optionsFor(f, data) : null;
               return (
                 <label

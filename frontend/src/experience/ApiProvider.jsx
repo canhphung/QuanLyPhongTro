@@ -184,6 +184,32 @@ export function ApiProvider({ children }) {
         "DELETE",
       ),
     respond: (id, status) => mutate(`/requests/${id}`, "PATCH", { status }),
+    uploadFiles: async (files) => {
+      const formData = new FormData();
+      for (const file of files) {
+        formData.append('files', file);
+      }
+      const response = await fetch(`/api/app/owner/upload`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+          'X-CSRF-Token': csrf.current,
+        },
+        body: formData,
+      });
+      const resText = await response.text();
+      let resData;
+      try {
+        resData = resText ? JSON.parse(resText) : null;
+      } catch {
+        throw new Error('Không thể xử lý phản hồi tải ảnh từ máy chủ.');
+      }
+      if (!response.ok) {
+        throw new Error(resData?.message || 'Tải ảnh thất bại.');
+      }
+      return resData?.urls || [];
+    },
   };
   return (
     <AppDataContext.Provider value={value}>

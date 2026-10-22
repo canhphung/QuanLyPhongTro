@@ -28,13 +28,16 @@ public class SecurityConfig {
         .csrf(
             csrf ->
                 csrf.csrfTokenRepository(tokens)
-                    .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
+                    .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                    .ignoringRequestMatchers("/api/app/owner/upload", "/api/app/upload"))
         .securityContext(context -> context.securityContextRepository(contexts))
         .requestCache(cache -> cache.disable())
         .httpBasic(basic -> basic.disable())
         .authorizeHttpRequests(
             auth ->
                 auth.dispatcherTypeMatchers(DispatcherType.ERROR)
+                    .permitAll()
+                    .requestMatchers("/api/uploads/**", "/uploads/**")
                     .permitAll()
                     .requestMatchers(
                         HttpMethod.GET,
@@ -44,7 +47,11 @@ public class SecurityConfig {
                         "/api/app/listings")
                     .permitAll()
                     .requestMatchers(
-                        HttpMethod.POST, "/api/app/auth/login", "/api/app/auth/register")
+                        HttpMethod.POST,
+                        "/api/app/auth/login",
+                        "/api/app/auth/register",
+                        "/api/app/owner/upload",
+                        "/api/app/upload")
                     .permitAll()
                     .requestMatchers("/api/app/owner/**")
                     .hasRole("CHU_TRO")
@@ -58,7 +65,7 @@ public class SecurityConfig {
                         HttpMethod.GET, "/api/cong-khai/tin-dang", "/api/cong-khai/tin-dang/**")
                     .permitAll()
                     .requestMatchers("/api/admin/tin-dang", "/api/admin/tin-dang/**")
-                    .hasRole("ADMIN")
+                    .hasAnyRole("ADMIN", "CHU_TRO")
                     .requestMatchers("/api/tin-dang", "/api/tin-dang/**")
                     .hasRole("CHU_TRO")
                     .requestMatchers("/api/nha-tro", "/api/nha-tro/**")
