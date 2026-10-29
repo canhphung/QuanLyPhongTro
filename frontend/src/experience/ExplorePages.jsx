@@ -78,9 +78,9 @@ export function RoomSearchPage({ savedOnly = false }) {
         room.price <= max &&
         amenities.every((x) => room.amenities.includes(x)) &&
         (!params.get("q") ||
-          normalized(`${room.title} ${room.address} ${room.building}`).includes(
-            normalized(params.get("q")),
-          ))
+          normalized(
+            `${room.title} ${room.address} ${room.building} ${(room.amenities || []).join(" ")}`,
+          ).includes(normalized(params.get("q"))))
       );
     })
     .sort((a, b) =>

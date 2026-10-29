@@ -74,4 +74,12 @@ npm install
 npm run dev
 ```
 
-Frontend: **http://localhost:5173**. CORS backend đã cho phép địa chỉ này.
+Frontend: **http://localhost:5174**. CORS backend đã cho phép địa chỉ này.
+
+### 4. Dữ liệu mẫu (chỉ môi trường phát triển)
+
+Migration Flyway V3 [V3__seed_demo_data.sql](backend/src/main/resources/db/migration/V3__seed_demo_data.sql) tự nạp **20 bản ghi cho mỗi bảng hiện có** khi backend khởi động lần đầu sau khi cập nhật mã nguồn. Migration V4 [V4__normalize_demo_ids_and_owner_data.sql](backend/src/main/resources/db/migration/V4__normalize_demo_ids_and_owner_data.sql) đưa ID mẫu về dải `AUTO_INCREMENT` kế tiếp và gom toàn bộ nhà/phòng mẫu vào tài khoản `owner01@qlpt-demo.test` để dễ dùng khu quản lý. Dữ liệu đi vào database backend kết nối theo `SPRING_DATASOURCE_URL`; với cấu hình mặc định đó là `QLPT` trên MariaDB tại `localhost:3306`. Trong phpMyAdmin, hãy chọn đúng server và database `QLPT`.
+
+Seed gồm 20 tin đăng đã duyệt và ảnh nội thất minh họa JPEG lưu cục bộ trong `frontend/public/images/demo/`, được Vite đóng gói cùng frontend. Ảnh minh họa không phải cam kết hình ảnh thực của từng phòng. Đăng nhập chủ trọ mẫu bằng `owner01@qlpt-demo.test` / `Demo@123`; tài khoản mẫu này quản lý toàn bộ nhà, phòng và hồ sơ liên quan. Các tài khoản mẫu còn lại dùng cùng mật khẩu. Mã mời người thuê mẫu đã hết hạn. **Chỉ áp dụng các migration mẫu này cho database phát triển**, không triển khai lên production.
+
+Sau khi cập nhật mã nguồn, khởi động lại backend để Flyway tự chạy các migration V3/V4; frontend tại **http://localhost:5174** có thể tải lại sau khi migration thành công.

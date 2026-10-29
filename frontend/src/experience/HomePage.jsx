@@ -138,14 +138,17 @@ function CostCalculator() {
 }
 
 export default function HomePage() {
-  const { publicRooms: rooms } = useAppData();
+  const { publicRooms: rooms, user } = useAppData();
   const navigate = useNavigate();
-  const [chosenCity, setCity] = useState("");
-  const city = chosenCity || rooms[0]?.city || "TP. Hồ Chí Minh";
+  const [chosenCity, setCity] = useState("Toàn quốc");
+  const city = chosenCity || "Toàn quốc";
   const [district, setDistrict] = useState("");
   const [budget, setBudget] = useState("");
   const [type, setType] = useState("Tất cả");
+  const [keyword, setKeyword] = useState("");
+  const [sort, setSort] = useState("newest");
   const [photo, setPhoto] = useState(0);
+  const [carouselPaused, setCarouselPaused] = useState(false);
   const homeRef = useRef(null);
   const heroRooms = rooms
     .filter((x) => x.available && x.published !== false)
@@ -158,16 +161,93 @@ export default function HomePage() {
     price: 0,
     district: "Khám phá phòng",
   };
-  const featured = rooms.filter(
-    (x) =>
-      x.available &&
-      x.published !== false &&
-      x.city === city &&
-      (type === "Tất cả" || x.type === type),
+  const availableCities = [...new Set(rooms.map((room) => room.city))].sort(
+    (a, b) => a.localeCompare(b, "vi"),
   );
   const districts = [
-    ...new Set(rooms.filter((x) => x.city === city).map((x) => x.district)),
-  ];
+    ...new Set(
+      rooms
+        .filter((room) => city === "Toàn quốc" || room.city === city)
+        .map((room) => room.district),
+    ),
+  ].sort((a, b) => a.localeCompare(b, "vi"));
+  const normalizeSearch = (text) =>
+    String(text || "")
+      .toLocaleLowerCase("vi")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d");
+  const query = normalizeSearch(keyword.trim());
+  const featured = rooms
+    .filter((room) => {
+      const [minPrice, maxPrice] = budget
+        ? budget.split("-").map(Number)
+        : [0, Infinity];
+      const searchableText = normalizeSearch([
+        room.title,
+        room.building,
+        room.address,
+        room.city,
+        room.district,
+        ...(room.amenities || []),
+      ].join(" "));
+      return (
+        room.available &&
+        room.published !== false &&
+        (city === "Toàn quốc" || room.city === city) &&
+        (!district || room.district === district) &&
+        (!budget ||
+          (Number(room.price) >= minPrice && Number(room.price) <= maxPrice)) &&
+        (type === "Tất cả" || room.type === type) &&
+        (!query || searchableText.includes(query))
+      );
+    })
+    .sort((a, b) => {
+      if (sort === "price-up") return Number(a.price) - Number(b.price);
+      if (sort === "area") return Number(b.area) - Number(a.area);
+      return Number(b.id) - Number(a.id);
+    });
+  const visibleRooms = featured.slice(0, 25);
+  const activeFilters = [
+    city !== "Toàn quốc" && city,
+    district,
+    type !== "Tất cả" && type,
+    budget &&
+      `Ngân sách ${
+        {
+          "0-3000000": "dưới 3 triệu",
+          "3000000-4500000": "3–4,5 triệu",
+          "4500000-6000000": "4,5–6 triệu",
+          "6000000-20000000": "trên 6 triệu",
+        }[budget] || budget
+      }`,
+    keyword.trim(),
+  ].filter(Boolean);
+  const cityCount = new Set(rooms.map((room) => room.city)).size;
+  const startingPrice = rooms.length
+    ? Math.min(...rooms.map((room) => Number(room.price)))
+    : 0;
+  function searchPath() {
+    const params = new URLSearchParams();
+    if (city !== "Toàn quốc") params.set("city", city);
+    if (district) params.set("district", district);
+    if (budget) params.set("budget", budget);
+    if (type !== "Tất cả") params.set("type", type);
+    if (keyword.trim()) params.set("q", keyword.trim());
+    return `/tim-phong${params.size ? `?${params}` : ""}`;
+  }
+  useEffect(() => {
+    if (heroRooms.length < 2 || carouselPaused) return undefined;
+    const motionPreference = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    );
+    if (motionPreference.matches) return undefined;
+    const timer = window.setInterval(
+      () => setPhoto((current) => (current + 1) % heroRooms.length),
+      6500,
+    );
+    return () => window.clearInterval(timer);
+  }, [carouselPaused, heroRooms.length]);
   useEffect(() => {
     const nodes = homeRef.current.querySelectorAll("[data-reveal]");
     if (!("IntersectionObserver" in window)) return;
@@ -187,10 +267,15 @@ export default function HomePage() {
   }, []);
   function search(event) {
     event.preventDefault();
-    const params = new URLSearchParams({ city });
-    if (district) params.set("district", district);
-    if (budget) params.set("budget", budget);
-    navigate(`/tim-phong?${params}`);
+    navigate(searchPath());
+  }
+  function resetFilters() {
+    setCity("Toàn quốc");
+    setDistrict("");
+    setBudget("");
+    setType("Tất cả");
+    setKeyword("");
+    setSort("newest");
   }
   return (
     <div ref={homeRef} className="home-page">
@@ -208,10 +293,7 @@ export default function HomePage() {
           </div>
           <form className="hero-search" onSubmit={search} data-ui>
             <div className="city-tabs" role="group" aria-label="Chọn thành phố">
-              {(rooms.length
-                ? [...new Set(rooms.map((r) => r.city))]
-                : ["TP. Hồ Chí Minh", "Hà Nội", "Đà Nẵng"]
-              ).map((value) => (
+              {["Toàn quốc", ...availableCities].map((value) => (
                 <button
                   type="button"
                   key={value}
@@ -257,6 +339,22 @@ export default function HomePage() {
                   <option value="6000000-20000000">Trên 6 triệu</option>
                 </select>
               </label>
+              <label>
+                <span>Loại phòng</span>
+                <select
+                  aria-label="Loại phòng muốn tìm"
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                >
+                  {["Tất cả", "Phòng trọ", "Studio", "Căn hộ mini"].map(
+                    (value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
             </div>
             <button className="button hero-search-button" type="submit">
               <Search size={19} />
@@ -275,7 +373,16 @@ export default function HomePage() {
             </a>
           </div>
         </div>
-        <div className="hero-photo-panel">
+        <div
+          className="hero-photo-panel"
+          onMouseEnter={() => setCarouselPaused(true)}
+          onMouseLeave={() => setCarouselPaused(false)}
+          onFocusCapture={() => setCarouselPaused(true)}
+          onBlurCapture={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget))
+              setCarouselPaused(false);
+          }}
+        >
           <div className="hero-photograph">
             {!heroRooms.length && <RoomPhoto alt="Chưa có ảnh phòng" />}
             {heroRooms.map((room, index) => (
@@ -298,7 +405,13 @@ export default function HomePage() {
                   ? `${activeRoom.district}, ${activeRoom.city}`
                   : "Chờ những căn phòng mới"}
               </span>
-              <span>{activeRoom.id ? "Ảnh do chủ trọ cung cấp" : ""}</span>
+              <span>
+                {activeRoom.id
+                  ? activeRoom.photo?.startsWith("/images/demo/")
+                    ? "Ảnh minh họa không gian"
+                    : "Ảnh do chủ trọ cung cấp"
+                  : ""}
+              </span>
             </div>
           </div>
           <div className="hero-photo-caption">
@@ -354,13 +467,35 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      <section
+        className="home-proof-strip"
+        aria-label="Thông tin tin đăng hiện có"
+        data-reveal
+      >
+        <div>
+          <strong>{rooms.length}</strong>
+          <span>phòng đang công khai</span>
+        </div>
+        <div>
+          <strong>{cityCount}</strong>
+          <span>thành phố có tin</span>
+        </div>
+        <div>
+          <strong>{startingPrice ? shortPrice(startingPrice) : "—"}</strong>
+          <span>triệu / tháng · giá từ</span>
+        </div>
+        <p>Số liệu cập nhật trực tiếp từ tin đăng đang mở.</p>
+      </section>
       <section className="featured-section section-space" id="phong-noi-bat">
         <div className="section-heading" data-reveal>
           <div>
             <h2>Chốn riêng đang chờ</h2>
-            <p>Một vài căn phòng để bắt đầu câu chuyện ở mới.</p>
+            <p>
+              Khám phá phòng còn trống trên toàn quốc; lọc theo khu vực, ngân
+              sách và nhu cầu thực tế của bạn.
+            </p>
           </div>
-          <ArrowLink to={`/tim-phong?city=${encodeURIComponent(city)}`}>
+          <ArrowLink to={searchPath()}>
             Xem tất cả phòng
           </ArrowLink>
         </div>
@@ -377,27 +512,118 @@ export default function HomePage() {
           ))}
           <span>
             <SlidersHorizontal size={15} />
-            {featured.length} phòng tại{" "}
-            {city === "TP. Hồ Chí Minh" ? "TP.HCM" : city}
+            {featured.length} phòng phù hợp
           </span>
         </div>
-        <div className="featured-collection" data-ui>
+        <div className="home-results-toolbar" data-ui>
+          <label className="home-results-search">
+            <Search size={18} />
+            <span className="sr-only">
+              Tìm theo tên phòng, đường hoặc tiện ích
+            </span>
+            <input
+              type="search"
+              placeholder="Tên phòng, đường phố, tiện ích…"
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+            />
+            {keyword && (
+              <button
+                type="button"
+                aria-label="Xóa từ khóa tìm kiếm"
+                onClick={() => setKeyword("")}
+              >
+                ×
+              </button>
+            )}
+          </label>
+          <div className="home-results-options">
+            <label>
+              <MapPin size={16} />
+              <span className="sr-only">Lọc theo khu vực</span>
+              <select
+                aria-label="Lọc phòng theo quận huyện"
+                value={district}
+                onChange={(event) => setDistrict(event.target.value)}
+              >
+                <option value="">Tất cả quận, huyện</option>
+                {districts.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <SlidersHorizontal size={16} />
+              <span className="sr-only">Sắp xếp phòng</span>
+              <select
+                aria-label="Sắp xếp phòng"
+                value={sort}
+                onChange={(event) => setSort(event.target.value)}
+              >
+                <option value="newest">Tin mới nhất</option>
+                <option value="price-up">Giá thấp trước</option>
+                <option value="area">Diện tích lớn</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        {activeFilters.length > 0 && (
+          <div className="home-active-filters" aria-live="polite">
+            <span>Đang lọc:</span>
+            {activeFilters.map((filter) => (
+              <span className="home-filter-chip" key={filter}>
+                {filter}
+              </span>
+            ))}
+            <button type="button" onClick={resetFilters}>
+              Xóa tất cả
+            </button>
+          </div>
+        )}
+        <p className="home-result-count" aria-live="polite">
+          Đang hiển thị <strong>{visibleRooms.length}</strong> trong{" "}
+          <strong>{featured.length}</strong> phòng đang phù hợp
+          {featured.length > 25 && " · giới hạn 25 phòng trên trang chủ"}
+        </p>
+        <div className="home-listings-grid" data-ui>
           {!featured.length && (
             <EmptyState
-              title="Căn phòng mới đang được cập nhật"
-              message="Thử đổi thành phố hoặc chọn loại phòng khác."
+              title="Chưa tìm thấy phòng phù hợp"
+              message="Thử đổi khu vực, loại phòng hoặc ngân sách để xem thêm lựa chọn."
+              action={
+                <button className="button button-soft" onClick={resetFilters}>
+                  Xóa bộ lọc
+                </button>
+              }
             />
           )}
-          {featured.slice(0, 4).map((room, index) => (
+          {visibleRooms.map((room, index) => (
             <div
               key={room.id}
-              className={index === 0 ? "featured-main" : "featured-side"}
+              className="home-listing-item"
               data-reveal
+              style={{ "--listing-order": index }}
             >
-              <RoomCard room={room} compact={index > 0} />
+              <RoomCard room={room} />
             </div>
           ))}
         </div>
+        {featured.length > 25 && (
+          <div className="home-more-results">
+            <p>
+              Còn {featured.length - 25} phòng khác trong kết quả tìm kiếm.
+            </p>
+            <Link
+              className="button button-soft"
+              to={searchPath()}
+            >
+              Xem toàn bộ {featured.length} phòng
+              <ArrowRight size={17} />
+            </Link>
+          </div>
+        )}
       </section>
       <div data-reveal>
         <CostCalculator />
@@ -409,8 +635,17 @@ export default function HomePage() {
             Đưa căn phòng đến người cần. Giữ chuyện quản lý nhà, hợp đồng và
             tiền thuê ở cùng một nơi.
           </p>
-          <Link to="/chu-tro/tin-dang" className="button button-dark">
-            Dành cho chủ trọ
+          <Link
+            to={
+              user?.role === "owner"
+                ? "/chu-tro/tong-quan"
+                : user
+                  ? "/tai-khoan"
+                  : "/dang-nhap?next=%2Fchu-tro%2Ftong-quan"
+            }
+            className="button button-dark"
+          >
+            {user?.role === "owner" ? "Mở bảng điều khiển" : "Quản lý nhà trọ"}
             <ArrowUpRight size={18} />
           </Link>
         </div>
@@ -419,12 +654,14 @@ export default function HomePage() {
             <span>Không gian chủ trọ</span>
           </div>
           <p>
-            Quản lý nhà trọ, phòng, hợp đồng và các khoản thu bằng tài khoản của
-            bạn.
+            Dữ liệu quản lý được lọc theo tài khoản chủ trọ. Đăng nhập để xem
+            nhà, phòng, hợp đồng và các khoản thu của bạn.
           </p>
-          <Link to="/dang-ky" className="button button-soft">
-            Tạo tài khoản chủ trọ <ArrowUpRight size={17} />
-          </Link>
+          {user?.role !== "owner" && (
+            <Link to="/dang-ky" className="button button-soft">
+              Tạo tài khoản chủ trọ <ArrowUpRight size={17} />
+            </Link>
+          )}
         </div>
       </section>
       <section className="faq-section section-space" id="cau-hoi">
