@@ -11,6 +11,8 @@ import {
   MyContractsPage,
   MyInvoicesPage,
   MyPaymentsPage,
+  MyNotificationsPage,
+  MyCollectionsPage,
 } from "../experience/AccountPages";
 import { OwnerLayout, OwnerDashboard } from "../experience/OwnerPages";
 import OwnerCollectionPage from "../experience/OwnerCollection";
@@ -28,6 +30,7 @@ const collections = [
   "thanh-toan",
   "tin-dang",
 ];
+
 function NotFound() {
   return (
     <div className="page-container not-found">
@@ -43,6 +46,7 @@ function NotFound() {
     </div>
   );
 }
+
 export default function AppRoutes() {
   const { search } = useLocation();
   return (
@@ -69,6 +73,8 @@ export default function AppRoutes() {
             <Route path="hop-dong" element={<MyContractsPage />} />
             <Route path="hoa-don" element={<MyInvoicesPage />} />
             <Route path="thanh-toan" element={<MyPaymentsPage />} />
+            <Route path="thong-bao" element={<MyNotificationsPage />} />
+            <Route path="bo-suu-tap" element={<MyCollectionsPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Route>
