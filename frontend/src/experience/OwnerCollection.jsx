@@ -10,7 +10,12 @@ import {
   KeyRound,
   Upload,
   Image as ImageIcon,
-  X,
+  LayoutGrid,
+  List,
+  Building2,
+  Maximize2,
+  DoorOpen,
+  AlertTriangle,
 } from "lucide-react";
 import { useAppData } from "./context";
 import { PageTitle, EmptyState, Status, Modal } from "./ui";
@@ -312,7 +317,17 @@ function RecordForm({ schema, record, onClose }) {
 }
 function cell(key, row) {
   if (["price", "amount", "remaining"].includes(key)) return money(row[key]);
-  if (key === "linked") return row[key] ? "Đã liên kết" : "Chưa liên kết";
+  if (key === "linked") {
+    return row[key] ? (
+      <span className="status-pill status-pill-success" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+        ✓ Đã liên kết
+      </span>
+    ) : (
+      <span className="status-pill status-pill-warning" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+        Chưa liên kết
+      </span>
+    );
+  }
   if (key === "publishedStatus")
     return (
       <Status>
@@ -325,12 +340,219 @@ function cell(key, row) {
   if (["date", "end"].includes(key)) return displayDate(row[key]);
   return row[key] ?? "—";
 }
+
+function RoomGridCard({ room, onDetail, onEdit, onDelete }) {
+  const isVacant =
+    room.roomState === "TRONG" || room.roomStatus === "Còn trống";
+  const isRented =
+    room.roomState === "DANG_THUE" || room.roomStatus === "Đang thuê";
+  const statusClass = isVacant
+    ? "status-pill-emerald"
+    : isRented
+      ? "status-pill-indigo"
+      : "status-pill-amber";
+  const statusLabel =
+    room.roomStatus ||
+    (isVacant ? "Còn trống" : isRented ? "Đang thuê" : "Bảo trì");
+
+  return (
+    <div className="room-grid-card">
+      <div>
+        <div className="room-grid-header">
+          <div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                flexWrap: "wrap",
+              }}
+            >
+              <span className="room-grid-number">P.{room.number}</span>
+              {room.type && <span className="room-type-tag">{room.type}</span>}
+            </div>
+            <div
+              className="room-grid-building"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "5px",
+                marginTop: "4px",
+              }}
+            >
+              <Building2 size={14} style={{ color: "var(--muted)" }} />
+              <span>{room.building || "Chưa chọn nhà trọ"}</span>
+            </div>
+          </div>
+          <span className={`status-pill ${statusClass}`}>
+            <span className="status-dot" />
+            {statusLabel}
+          </span>
+        </div>
+
+        <div className="room-grid-specs">
+          <span>
+            <Maximize2 size={14} />
+            {room.area} m²
+          </span>
+          <span>
+            <DoorOpen size={14} />
+            Mã #{room.id}
+          </span>
+        </div>
+      </div>
+
+      <div className="room-grid-footer">
+        <div className="room-grid-price">
+          {money(room.price)}
+          <small> / tháng</small>
+        </div>
+        <div className="row-actions">
+          <button
+            className="icon-button"
+            title="Xem chi tiết"
+            aria-label={`Chi tiết ${room.number}`}
+            onClick={() => onDetail(room.id)}
+          >
+            <FileText size={16} />
+          </button>
+          <button
+            className="icon-button"
+            title="Chỉnh sửa thông tin"
+            aria-label={`Chỉnh sửa ${room.number}`}
+            onClick={() => onEdit(room)}
+          >
+            <Pencil size={16} />
+          </button>
+          <button
+            className="icon-button danger-text"
+            title="Xóa phòng"
+            aria-label={`Xóa ${room.number}`}
+            onClick={() => onDelete(room)}
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BuildingGridCard({ building, onDetail, onEdit, onDelete }) {
+  const isActive = building.status === "Đang hoạt động";
+  const statusClass = isActive ? "status-pill-emerald" : "status-pill-amber";
+
+  return (
+    <div className="building-grid-card">
+      <div>
+        <div className="room-grid-header">
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div
+              style={{
+                width: "42px",
+                height: "42px",
+                borderRadius: "12px",
+                background: "rgba(79, 70, 229, 0.1)",
+                color: "#4F46E5",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Building2 size={22} />
+            </div>
+            <div>
+              <h3
+                style={{
+                  fontSize: "17px",
+                  fontWeight: 700,
+                  margin: 0,
+                  color: "var(--ink)",
+                }}
+              >
+                {building.name}
+              </h3>
+              <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+                Quản lý: {building.manager || "Chưa gán"}
+              </span>
+            </div>
+          </div>
+          <span className={`status-pill ${statusClass}`}>
+            <span className="status-dot" />
+            {building.status || "Đang hoạt động"}
+          </span>
+        </div>
+
+        <div
+          style={{
+            fontSize: "13px",
+            color: "var(--muted)",
+            margin: "14px 0",
+            lineHeight: 1.5,
+          }}
+        >
+          <p style={{ margin: 0 }}>{building.address}</p>
+          <p
+            style={{
+              margin: "2px 0 0",
+              fontWeight: 500,
+              color: "var(--ink)",
+            }}
+          >
+            {building.district ? `${building.district}, ` : ""}
+            {building.city}
+          </p>
+        </div>
+      </div>
+
+      <div
+        className="room-grid-footer"
+        style={{ borderTop: "1px solid var(--line)", paddingTop: "12px" }}
+      >
+        <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+          ID #{building.id}
+        </span>
+        <div className="row-actions">
+          <button
+            className="icon-button"
+            title="Xem chi tiết"
+            aria-label={`Chi tiết ${building.name}`}
+            onClick={() => onDetail(building.id)}
+          >
+            <FileText size={16} />
+          </button>
+          <button
+            className="icon-button"
+            title="Chỉnh sửa thông tin"
+            aria-label={`Chỉnh sửa ${building.name}`}
+            onClick={() => onEdit(building)}
+          >
+            <Pencil size={16} />
+          </button>
+          <button
+            className="icon-button danger-text"
+            title="Xóa nhà trọ"
+            aria-label={`Xóa ${building.name}`}
+            onClick={() => onDelete(building)}
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 export default function OwnerCollectionPage({ section }) {
   const data = useAppData(),
     schema = schemas[section];
   const [params, setParams] = useSearchParams();
   const [keyword, setKeyword] = useState(params.get("q") || "");
   const [status, setStatus] = useState("");
+  const [buildingFilter, setBuildingFilter] = useState("");
+  const [viewMode, setViewMode] = useState(
+    ["phong", "nha-tro"].includes(section) ? "grid" : "table",
+  );
   const [page, setPage] = useState(1);
   const [editor, setEditor] = useState(params.get("new") === "1" ? {} : null);
   const [detailId, setDetailId] = useState(null);
@@ -346,19 +568,29 @@ export default function OwnerCollectionPage({ section }) {
       ? row.publishedStatus
       : row.roomStatus || row.status;
   const statuses = [...new Set(rows.map(statusOf).filter(Boolean))];
-  const filtered = rows.filter(
-    (row) =>
-      (!keyword ||
-        Object.values(row)
-          .filter((x) => typeof x !== "object")
-          .join(" ")
-          .toLocaleLowerCase("vi")
-          .includes(keyword.toLocaleLowerCase("vi"))) &&
-      (!status || statusOf(row) === status),
-  );
-  const pages = Math.max(1, Math.ceil(filtered.length / 8)),
+
+  const filtered = rows.filter((row) => {
+    const matchesKeyword =
+      !keyword ||
+      Object.values(row)
+        .filter((x) => typeof x !== "object")
+        .join(" ")
+        .toLocaleLowerCase("vi")
+        .includes(keyword.toLocaleLowerCase("vi"));
+    const matchesStatus = !status || statusOf(row) === status;
+    const matchesBuilding =
+      !buildingFilter ||
+      String(row.buildingId) === String(buildingFilter) ||
+      row.building === buildingFilter ||
+      (row.name && row.name.includes(buildingFilter));
+    return matchesKeyword && matchesStatus && matchesBuilding;
+  });
+
+  const pageSize = viewMode === "grid" ? 9 : 8;
+  const pages = Math.max(1, Math.ceil(filtered.length / pageSize)),
     current = Math.min(page, pages),
-    visible = filtered.slice((current - 1) * 8, current * 8);
+    visible = filtered.slice((current - 1) * pageSize, current * pageSize);
+
   function closeEditor() {
     setEditor(null);
     if (params.has("new")) {
@@ -367,6 +599,7 @@ export default function OwnerCollectionPage({ section }) {
       setParams(next, { replace: true });
     }
   }
+
   async function run(fn) {
     setBusy(true);
     setError("");
@@ -378,6 +611,7 @@ export default function OwnerCollectionPage({ section }) {
       setBusy(false);
     }
   }
+
   function exportCSV() {
     const escape = (v) =>
       `"${String(v ?? "")
@@ -403,6 +637,7 @@ export default function OwnerCollectionPage({ section }) {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+
   return (
     <div>
       <PageTitle
@@ -434,7 +669,34 @@ export default function OwnerCollectionPage({ section }) {
               }}
             />
           </label>
-          <div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              flexWrap: "wrap",
+            }}
+          >
+            {["phong", "hop-dong", "hoa-don"].includes(section) &&
+              data.buildings &&
+              data.buildings.length > 0 && (
+                <select
+                  aria-label="Lọc theo nhà trọ"
+                  value={buildingFilter}
+                  onChange={(e) => {
+                    setBuildingFilter(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">Tất cả nhà trọ</option>
+                  {data.buildings.map((b) => (
+                    <option key={b.id} value={b.name || b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
             <select
               aria-label="Lọc trạng thái"
               value={status}
@@ -448,162 +710,231 @@ export default function OwnerCollectionPage({ section }) {
                 <option key={s}>{s}</option>
               ))}
             </select>
+
+            {["phong", "nha-tro"].includes(section) && (
+              <div
+                className="view-mode-toggle"
+                role="group"
+                aria-label="Chế độ hiển thị"
+              >
+                <button
+                  type="button"
+                  className={`view-mode-btn ${viewMode === "grid" ? "active" : ""}`}
+                  onClick={() => setViewMode("grid")}
+                  title="Hiển thị dạng lưới thẻ"
+                  aria-label="Dạng lưới thẻ"
+                >
+                  <LayoutGrid size={16} />
+                </button>
+                <button
+                  type="button"
+                  className={`view-mode-btn ${viewMode === "table" ? "active" : ""}`}
+                  onClick={() => setViewMode("table")}
+                  title="Hiển thị dạng bảng chi tiết"
+                  aria-label="Dạng bảng chi tiết"
+                >
+                  <List size={16} />
+                </button>
+              </div>
+            )}
+
             <button className="button button-soft" onClick={exportCSV}>
               <ArrowDownToLine size={16} />
               Xuất CSV
             </button>
           </div>
         </div>
+
         {visible.length ? (
-          <div className="table-scroll">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  {schema.columns.map(([key, label]) => (
-                    <th key={key}>{label}</th>
-                  ))}
-                  <th className="align-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((row) => (
-                  <tr key={row.id}>
-                    {schema.columns.map(([key]) => (
-                      <td key={key}>{cell(key, row)}</td>
+          viewMode === "grid" && section === "phong" ? (
+            <div className="room-grid-list">
+              {visible.map((room) => (
+                <RoomGridCard
+                  key={room.id}
+                  room={room}
+                  onDetail={(id) => setDetailId(id)}
+                  onEdit={(r) => setEditor(r)}
+                  onDelete={(r) => setRemoval(r)}
+                />
+              ))}
+            </div>
+          ) : viewMode === "grid" && section === "nha-tro" ? (
+            <div className="building-grid-list">
+              {visible.map((bldg) => (
+                <BuildingGridCard
+                  key={bldg.id}
+                  building={bldg}
+                  onDetail={(id) => setDetailId(id)}
+                  onEdit={(b) => setEditor(b)}
+                  onDelete={(b) => setRemoval(b)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    {schema.columns.map(([key, label]) => (
+                      <th key={key}>{label}</th>
                     ))}
-                    <td>
-                      <div className="row-actions">
-                        <button
-                          className="icon-button"
-                          onClick={() => setDetailId(row.id)}
-                          aria-label={`Chi tiết ${row.name || row.title || row.id}`}
-                        >
-                          <FileText size={16} />
-                        </button>
-                        {schema.key === "listings" && (
-                          <>
-                            {row.canSubmit && (
-                              <button
-                                className="text-button"
-                                disabled={busy}
-                                onClick={() =>
-                                  run(() =>
-                                    data.mutate(
-                                      `/owner/listings/${row.id}/submit`,
-                                      "POST",
-                                      { version: row.version },
-                                    ),
-                                  )
-                                }
-                              >
-                                Gửi duyệt
-                              </button>
-                            )}
-                            {row.listingState === "CHO_DUYET" && (
-                              <button
-                                className="text-button"
-                                disabled={busy}
-                                onClick={() =>
-                                  run(() =>
-                                    data.mutate(
-                                      `/owner/listings/${row.id}/withdraw`,
-                                      "POST",
-                                      { version: row.version },
-                                    ),
-                                  )
-                                }
-                              >
-                                Rút duyệt
-                              </button>
-                            )}
-                            {row.listingState === "DA_DUYET" && (
-                              <button
-                                className="text-button"
-                                disabled={busy}
-                                onClick={() =>
-                                  run(() =>
-                                    data.mutate(
-                                      `/owner/listings/${row.id}/hide`,
-                                      "POST",
-                                      { version: row.version },
-                                    ),
-                                  )
-                                }
-                              >
-                                Ẩn tin
-                              </button>
-                            )}
-                          </>
-                        )}
-                        <button
-                          className="icon-button"
-                          disabled={schema.key === "listings" && !row.canEdit}
-                          onClick={() => setEditor(row)}
-                          aria-label={`Chỉnh sửa ${row.name || row.title || row.id}`}
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        {schema.key === "tenants" && !row.linked && (
+                    <th className="align-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((row) => (
+                    <tr key={row.id}>
+                      {schema.columns.map(([key]) => (
+                        <td key={key}>{cell(key, row)}</td>
+                      ))}
+                      <td>
+                        <div className="row-actions">
                           <button
                             className="icon-button"
-                            disabled={busy}
-                            aria-label={`Cấp mã liên kết ${row.name}`}
-                            onClick={() =>
-                              run(async () => {
-                                setInvitation(
-                                  await data.call(
-                                    `/owner/tenants/${row.id}/invitation`,
-                                    "POST",
-                                    {},
-                                  ),
-                                );
-                              })
-                            }
+                            onClick={() => setDetailId(row.id)}
+                            aria-label={`Chi tiết ${row.name || row.title || row.id}`}
+                            title="Xem chi tiết"
                           >
-                            <KeyRound size={16} />
+                            <FileText size={16} />
                           </button>
-                        )}
-                        {schema.key === "contracts" ? (
-                          <>
-                            <button
-                              className="text-button"
-                              onClick={() =>
-                                setEnding({ id: row.id, action: "end" })
-                              }
-                            >
-                              Kết thúc
-                            </button>
-                            <button
-                              className="text-button danger-text"
-                              onClick={() =>
-                                setEnding({ id: row.id, action: "cancel" })
-                              }
-                            >
-                              Hủy HĐ
-                            </button>
-                          </>
-                        ) : (
+                          {schema.key === "listings" && (
+                            <>
+                              {row.canSubmit && (
+                                <button
+                                  className="text-button"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    run(() =>
+                                      data.mutate(
+                                        `/owner/listings/${row.id}/submit`,
+                                        "POST",
+                                        { version: row.version },
+                                      ),
+                                    )
+                                  }
+                                >
+                                  Gửi duyệt
+                                </button>
+                              )}
+                              {row.listingState === "CHO_DUYET" && (
+                                <button
+                                  className="text-button"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    run(() =>
+                                      data.mutate(
+                                        `/owner/listings/${row.id}/withdraw`,
+                                        "POST",
+                                        { version: row.version },
+                                      ),
+                                    )
+                                  }
+                                >
+                                  Rút duyệt
+                                </button>
+                              )}
+                              {row.listingState === "DA_DUYET" && (
+                                <button
+                                  className="text-button"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    run(() =>
+                                      data.mutate(
+                                        `/owner/listings/${row.id}/hide`,
+                                        "POST",
+                                        { version: row.version },
+                                      ),
+                                    )
+                                  }
+                                >
+                                  Ẩn tin
+                                </button>
+                              )}
+                            </>
+                          )}
                           <button
-                            className="icon-button danger-text"
-                            onClick={() => setRemoval(row)}
-                            aria-label={`Xóa ${row.name || row.title || row.id}`}
+                            className="icon-button"
+                            disabled={schema.key === "listings" && !row.canEdit}
+                            onClick={() => setEditor(row)}
+                            aria-label={`Chỉnh sửa ${row.name || row.title || row.id}`}
+                            title="Chỉnh sửa"
                           >
-                            <Trash2 size={16} />
+                            <Pencil size={16} />
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                          {schema.key === "tenants" && (
+                            <button
+                              className="icon-button"
+                              disabled={busy || row.linked}
+                              aria-label={`Cấp mã liên kết ${row.name}`}
+                              title={row.linked ? "Hồ sơ này đã được liên kết với tài khoản người thuê" : "Cấp mã liên kết OTP 24h"}
+                              onClick={() =>
+                                run(async () => {
+                                  setInvitation(
+                                    await data.call(
+                                      `/owner/tenants/${row.id}/invitation`,
+                                      "POST",
+                                      {},
+                                    ),
+                                  );
+                                })
+                              }
+                              style={
+                                row.linked
+                                  ? { opacity: 0.35, cursor: "not-allowed" }
+                                  : { color: "#2563EB", background: "rgba(37, 99, 235, 0.08)", borderColor: "rgba(37, 99, 235, 0.2)" }
+                              }
+                            >
+                              <KeyRound size={16} />
+                            </button>
+                          )}
+                          {schema.key === "contracts" ? (
+                            <>
+                              <button
+                                className="text-button"
+                                onClick={() =>
+                                  setEnding({ id: row.id, action: "end" })
+                                }
+                              >
+                                Kết thúc
+                              </button>
+                              <button
+                                className="text-button danger-text"
+                                onClick={() =>
+                                  setEnding({ id: row.id, action: "cancel" })
+                                }
+                              >
+                                Hủy HĐ
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className="icon-button danger-text"
+                              onClick={() => setRemoval(row)}
+                              aria-label={`Xóa ${row.name || row.title || row.id}`}
+                              title="Xóa bản ghi"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
         ) : (
           <EmptyState
-            title="Chưa có dữ liệu phù hợp"
-            message="Thêm bản ghi mới hoặc thử đổi bộ lọc."
+            title={schema.key === "tenants" ? "Chưa có hồ sơ người thuê nào" : "Chưa có dữ liệu phù hợp"}
+            message={
+              schema.key === "tenants"
+                ? "Bấm nút '+ Thêm người thuê' ở phía trên để tạo hồ sơ mới, sau đó bấm icon chìa khóa để cấp mã liên kết OTP 24h cho khách."
+                : "Thêm bản ghi mới hoặc thử đổi bộ lọc tìm kiếm."
+            }
           />
         )}
+
         <div className="pagination">
           <span>
             {filtered.length} bản ghi · Trang {current}/{pages}
@@ -626,6 +957,7 @@ export default function OwnerCollectionPage({ section }) {
           </div>
         </div>
       </div>
+
       {editor && (
         <RecordForm
           schema={schema}
@@ -633,6 +965,7 @@ export default function OwnerCollectionPage({ section }) {
           onClose={closeEditor}
         />
       )}
+
       {detail && schema.key === "invoices" && (
         <InvoiceModal
           invoice={detail}
@@ -640,6 +973,7 @@ export default function OwnerCollectionPage({ section }) {
           onClose={() => setDetailId(null)}
         />
       )}
+
       {detail && schema.key === "contracts" && (
         <ContractModal
           contract={detail}
@@ -647,6 +981,7 @@ export default function OwnerCollectionPage({ section }) {
           onClose={() => setDetailId(null)}
         />
       )}
+
       {detail && !["invoices", "contracts"].includes(schema.key) && (
         <Modal
           title={`Chi tiết ${schema.singular}`}
@@ -662,29 +997,53 @@ export default function OwnerCollectionPage({ section }) {
           </dl>
         </Modal>
       )}
+
       {removal && (
         <Modal
-          title={`Xóa ${schema.singular}?`}
+          title={`Xác nhận xóa ${schema.singular}?`}
           onClose={() => !busy && setRemoval(null)}
         >
-          <p>
-            Bản ghi “{removal.name || removal.title || removal.id}” sẽ được xóa
-            khỏi máy chủ. Các bản ghi có ràng buộc nghiệp vụ sẽ được giữ lại.
-          </p>
+          <div className="confirm-delete-body">
+            <div className="confirm-delete-icon-box">
+              <AlertTriangle size={24} />
+            </div>
+            <div>
+              <p className="confirm-delete-text">
+                Bạn có chắc chắn muốn xóa bản ghi{" "}
+                <strong>
+                  “
+                  {removal.name ||
+                    removal.title ||
+                    removal.number ||
+                    `#${removal.id}`}
+                  ”
+                </strong>
+                ?
+              </p>
+              <p className="confirm-delete-subtext">
+                Thao tác này sẽ xóa bản ghi khỏi hệ thống. Nếu bản ghi đang có dữ
+                liệu ràng buộc nghiệp vụ (hợp đồng còn hiệu lực, hóa đơn chưa
+                thanh toán), hệ thống sẽ bảo vệ toàn vẹn và từ chối xóa.
+              </p>
+            </div>
+          </div>
           {error && (
-            <p role="alert" className="form-error">
-              {error}
-            </p>
+            <div className="form-error-banner" role="alert">
+              <AlertTriangle size={16} />
+              <span>{error}</span>
+            </div>
           )}
           <div className="modal-footer">
             <button
+              type="button"
               className="button button-soft"
               disabled={busy}
               onClick={() => setRemoval(null)}
             >
-              Giữ lại
+              Hủy bỏ
             </button>
             <button
+              type="button"
               className="button button-danger"
               disabled={busy}
               onClick={() =>
@@ -695,15 +1054,16 @@ export default function OwnerCollectionPage({ section }) {
                     removal.version,
                   );
                   setRemoval(null);
-                  data.notify("Đã xóa bản ghi.");
+                  data.notify("Đã xóa bản ghi thành công.");
                 })
               }
             >
-              Xóa bản ghi
+              {busy ? "Đang xóa…" : "Xác nhận xóa"}
             </button>
           </div>
         </Modal>
       )}
+
       {ending && (
         <Modal
           title={ending.action === "end" ? "Kết thúc hợp đồng" : "Hủy hợp đồng"}
@@ -752,35 +1112,92 @@ export default function OwnerCollectionPage({ section }) {
                 {error}
               </p>
             )}
-            <button className="button" disabled={busy}>
-              Xác nhận
-            </button>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="button button-soft"
+                disabled={busy}
+                onClick={() => setEnding(null)}
+              >
+                Hủy bỏ
+              </button>
+              <button className="button" disabled={busy}>
+                {busy ? "Đang xử lý…" : "Xác nhận"}
+              </button>
+            </div>
           </form>
         </Modal>
       )}
+
       {invitation && (
         <Modal
           title="Mã liên kết người thuê"
           onClose={() => setInvitation(null)}
         >
-          <p>
-            Chuyển riêng mã này cho đúng người thuê. Mã dùng một lần, hết hạn
-            sau 24 giờ.
-          </p>
-          <code className="invitation-code">{invitation.code}</code>
-          <button
-            className="button button-soft"
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(invitation.code);
-                data.notify("Đã sao chép mã.");
-              } catch {
-                data.notify("Hãy chọn và sao chép mã bên trên.");
-              }
-            }}
-          >
-            Sao chép mã
-          </button>
+          <div style={{ textAlign: "center", padding: "12px 0 20px" }}>
+            <div
+              style={{
+                width: "48px",
+                height: "48px",
+                borderRadius: "50%",
+                background: "#EEF2FF",
+                color: "#4F46E5",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: "12px",
+              }}
+            >
+              <KeyRound size={24} />
+            </div>
+            <p
+              style={{
+                fontSize: "14px",
+                color: "var(--muted)",
+                margin: "0 0 16px",
+              }}
+            >
+              Gửi riêng mã này cho người thuê để liên kết tài khoản vào phòng
+              trọ. Mã có hiệu lực trong vòng <strong>24 giờ</strong>.
+            </p>
+            <div
+              style={{
+                background: "var(--surface-soft, #F8FAFC)",
+                border: "2px dashed #4F46E5",
+                borderRadius: "14px",
+                padding: "16px 24px",
+                margin: "0 auto 16px",
+                maxWidth: "320px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "26px",
+                  fontWeight: 800,
+                  letterSpacing: "4px",
+                  color: "#4F46E5",
+                  fontFamily: "monospace",
+                }}
+              >
+                {invitation.code}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="button"
+              style={{ margin: "0 auto" }}
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(invitation.code);
+                  data.notify("Đã sao chép mã liên kết!");
+                } catch {
+                  data.notify("Hãy chọn và sao chép mã bên trên.");
+                }
+              }}
+            >
+              Sao chép mã liên kết
+            </button>
+          </div>
         </Modal>
       )}
     </div>

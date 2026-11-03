@@ -86,6 +86,35 @@ export function ApiProvider({ children }) {
     }
   });
 
+  // Dark / Light Theme state
+  const [theme, setTheme] = useState(() => {
+    try {
+      const stored = localStorage.getItem("phongminh_theme");
+      if (stored) return stored;
+      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    } catch {
+      return "light";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      document.documentElement.setAttribute("data-theme", theme);
+      if (theme === "dark") {
+        document.documentElement.classList.add("dark");
+        document.body.classList.add("dark-theme");
+      } else {
+        document.documentElement.classList.remove("dark");
+        document.body.classList.remove("dark-theme");
+      }
+      localStorage.setItem("phongminh_theme", theme);
+    } catch {}
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  }, []);
+
   const notify = useCallback((message) => {
     clearTimeout(toastTimer.current);
     setNotice(message);
@@ -431,6 +460,10 @@ export function ApiProvider({ children }) {
     readNotifIds,
     markNotificationRead,
     markAllNotificationsRead,
+    // Theme (Dark / Light)
+    theme,
+    setTheme,
+    toggleTheme,
     // CRUD
     saveRecord: (key, id, body) =>
       mutate(`/owner/${key}${id ? `/${id}` : ""}`, id ? "PUT" : "POST", body),

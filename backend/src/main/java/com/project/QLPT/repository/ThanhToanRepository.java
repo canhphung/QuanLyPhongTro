@@ -15,6 +15,10 @@ public interface ThanhToanRepository extends JpaRepository<ThanhToan, Integer>, 
 
     boolean existsByHoaDon_Id(Integer hoaDonId);
 
+    boolean existsByMaGiaoDich(String maGiaoDich);
+
+    java.util.Optional<ThanhToan> findByMaGiaoDich(String maGiaoDich);
+
     @Query("select sum(t.soTien) from ThanhToan t where t.hoaDon.id = :hoaDonId")
     BigDecimal sumSoTienByHoaDonId(@Param("hoaDonId") Integer hoaDonId);
 

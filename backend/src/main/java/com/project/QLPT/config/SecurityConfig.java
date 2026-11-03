@@ -29,13 +29,18 @@ public class SecurityConfig {
             csrf ->
                 csrf.csrfTokenRepository(tokens)
                     .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                    .ignoringRequestMatchers("/api/app/owner/upload", "/api/app/upload"))
+                    .ignoringRequestMatchers(
+                        "/api/app/owner/upload",
+                        "/api/app/upload",
+                        "/api/payment/vnpay/**"))
         .securityContext(context -> context.securityContextRepository(contexts))
         .requestCache(cache -> cache.disable())
         .httpBasic(basic -> basic.disable())
         .authorizeHttpRequests(
             auth ->
                 auth.dispatcherTypeMatchers(DispatcherType.ERROR)
+                    .permitAll()
+                    .requestMatchers("/api/payment/vnpay/**")
                     .permitAll()
                     .requestMatchers("/api/uploads/**", "/uploads/**")
                     .permitAll()
