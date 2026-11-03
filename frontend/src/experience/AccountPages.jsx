@@ -1167,6 +1167,12 @@ export function MyRequestsPage() {
                 <p style={{ fontSize: "13.5px", color: "#64748B" }}>
                   Loại yêu cầu: <strong>{req.type}</strong> {req.note && ` · Ghi chú: ${req.note}`}
                 </p>
+                {req.holdUntil && (
+                  <p style={{ fontSize: "13.5px", color: "#64748B" }}>
+                    Giữ chỗ đến <strong>{req.holdUntil}</strong> · Tiền cọc giữ chỗ{" "}
+                    <strong>{Number(req.holdDeposit || 0).toLocaleString("vi-VN")} ₫</strong>
+                  </p>
+                )}
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -1175,13 +1181,14 @@ export function MyRequestsPage() {
                     Xem phòng <ArrowUpRight size={15} />
                   </Link>
                 )}
-                {!["Đã hủy", "Đã từ chối"].includes(req.status) && (
+                {((["Chờ xác nhận", "Đã xác nhận"].includes(req.status) && !req.past) ||
+                  req.status === "Đã giữ chỗ") && (
                   <button
                     className="text-button"
                     style={{ color: "#EF4444" }}
                     onClick={() => setCancelModal(req)}
                   >
-                    Hủy yêu cầu
+                    {req.status === "Đã giữ chỗ" ? "Hủy giữ chỗ" : "Hủy yêu cầu"}
                   </button>
                 )}
               </div>
@@ -1200,6 +1207,8 @@ export function MyRequestsPage() {
         <Modal title="Xác nhận hủy yêu cầu" onClose={() => setCancelModal(null)}>
           <p style={{ fontSize: "14.5px", color: "#475569", marginBottom: "24px" }}>
             Bạn có chắc chắn muốn hủy yêu cầu này tại {cancelModal.building}?
+            {cancelModal.status === "Đã giữ chỗ" &&
+              " Việc hoàn tiền cọc giữ chỗ theo thỏa thuận với chủ trọ."}
           </p>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px" }}>
             <button className="btn-header-login" onClick={() => setCancelModal(null)}>
@@ -1324,13 +1333,13 @@ export function MyNotificationsPage() {
       desc:
         req.status === "Chờ xác nhận"
           ? `Yêu cầu "${req.type || "Xem phòng"}" đang chờ chủ nhà phản hồi.`
-          : req.status === "Đã duyệt"
+          : req.status === "Đã xác nhận"
             ? `Chủ nhà đã xác nhận yêu cầu "${req.type || "Xem phòng"}" vào ngày ${req.date || ""}.`
             : `Yêu cầu "${req.type || "Xem phòng"}" đã được cập nhật: ${req.status}.`,
       date: req.date || TODAY_INPUT,
       actionUrl: "/tai-khoan/yeu-cau",
       actionLabel: "Xem chi tiết",
-      severity: req.status === "Đã duyệt" ? "success" : req.status === "Chờ xác nhận" ? "info" : "muted",
+      severity: req.status === "Đã xác nhận" ? "success" : req.status === "Chờ xác nhận" ? "info" : "muted",
     });
   });
 

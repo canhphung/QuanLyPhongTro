@@ -1110,16 +1110,23 @@ export function RoomDetailPage() {
                     required
                     defaultValue={TODAY_INPUT}
                     min={TODAY_INPUT}
+                    max={(() => {
+                      const d = new Date(`${TODAY_INPUT}T00:00:00`);
+                      d.setDate(d.getDate() + 60);
+                      return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-");
+                    })()}
                     style={{ padding: "10px 12px", borderRadius: "10px", border: "1px solid #E2E8F0" }}
                   />
                 </label>
 
                 <label className="field" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <span style={{ fontSize: "13px", fontWeight: 600, color: "#475569" }}>Giờ hẹn</span>
+                  <span style={{ fontSize: "13px", fontWeight: 600, color: "#475569" }}>Giờ hẹn (07:00–21:00)</span>
                   <input
                     name="time"
                     type="time"
                     required
+                    min="07:00"
+                    max="21:00"
                     defaultValue="09:00"
                     style={{ padding: "10px 12px", borderRadius: "10px", border: "1px solid #E2E8F0" }}
                   />

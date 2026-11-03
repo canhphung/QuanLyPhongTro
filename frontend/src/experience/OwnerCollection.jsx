@@ -177,14 +177,59 @@ function ImageUploadField({ field, initialValue }) {
   );
 }
 
+const addMonths = (iso, months) => {
+  const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
+  const date = new Date(y, m - 1 + months, d);
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+};
+
 function RecordForm({ schema, record, onClose }) {
   const data = useAppData();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Form hợp đồng mới: yêu cầu giữ chỗ đang chọn và lựa chọn người đứng tên.
+  const isNewContract = schema.key === "contracts" && !record;
+  const [hold, setHold] = useState(null);
+  const [tenantChoice, setTenantChoice] = useState("");
+  function onFormChange(event) {
+    if (!isNewContract) return;
+    const form = event.currentTarget;
+    const el = event.target;
+    const fillPrice = (roomId, force) => {
+      const room = (data.rooms || []).find((r) => String(r.id) === String(roomId));
+      if (!room) return;
+      if (force || !form.elements.price.value) form.elements.price.value = room.price;
+      if (force || !form.elements.deposit.value) form.elements.deposit.value = room.price;
+    };
+    if (el.name === "requestId") {
+      const req = (data.requests || []).find((x) => String(x.id) === el.value) || null;
+      setHold(req);
+      if (req) {
+        form.elements.roomId.value = String(req.roomRecordId);
+        fillPrice(req.roomRecordId, true);
+        const tid = req.tenantProfileId ? String(req.tenantProfileId) : "new";
+        form.elements.tenantId.value = tid;
+        setTenantChoice(tid);
+      }
+    } else if (el.name === "roomId") {
+      fillPrice(el.value, false);
+    } else if (el.name === "tenantId") {
+      setTenantChoice(el.value);
+    } else if (el.name === "start" && el.value) {
+      if (!form.elements.end.value || form.elements.end.value <= el.value)
+        form.elements.end.value = addMonths(el.value, 12);
+    }
+  }
   async function submit(event) {
     event.preventDefault();
     const body = Object.fromEntries(new FormData(event.currentTarget));
     if (record?.version != null) body.version = record.version;
+    // Ô phòng bị khóa khi lập từ giữ chỗ nên không nằm trong FormData.
+    if (isNewContract && hold) body.roomId = String(hold.roomRecordId);
     setBusy(true);
     setError("");
     try {
@@ -201,6 +246,8 @@ function RecordForm({ schema, record, onClose }) {
     const value = record?.[field.key];
     if (field.key === "published") return "false";
     if (!record && field.key === "roomState") return "TRONG";
+    if (!record && schema.key === "contracts" && field.key === "end")
+      return addMonths(TODAY_INPUT, 12);
     if (Array.isArray(value))
       return value.join(field.key === "images" ? "\n" : ", ");
     if (field.type === "datetime-local")
@@ -217,7 +264,7 @@ function RecordForm({ schema, record, onClose }) {
       wide
       onClose={() => !busy && onClose()}
     >
-      <form onSubmit={submit} className="form-stack">
+      <form onSubmit={submit} onChange={onFormChange} className="form-stack">
         <div className="record-form-grid">
           {schema.fields
             .filter((f) => !record || !f.createOnly)
@@ -241,24 +288,33 @@ function RecordForm({ schema, record, onClose }) {
                     {f.label}
                     {f.optional ? " (không bắt buộc)" : ""}
                   </span>
+                  {f.hint && <small className="field-hint">{f.hint}</small>}
                   {options ? (
                     <select
                       name={f.key}
                       defaultValue={initial(f)}
                       required={!f.optional}
                       disabled={
-                        f.key === "roomState" &&
-                        (!record || record.roomState === "DANG_THUE")
+                        (f.key === "roomState" &&
+                          (!record ||
+                            ["DANG_THUE", "DA_DAT"].includes(record.roomState))) ||
+                        (isNewContract && f.key === "roomId" && !!hold)
                       }
                     >
                       <option value="">
                         Chọn {f.label.toLocaleLowerCase("vi")}
                       </option>
+                      {isNewContract && f.key === "tenantId" && (
+                        <option value="new">+ Tạo hồ sơ người thuê mới</option>
+                      )}
                       {options.map(([id, label]) => (
                         <option
                           key={id}
                           value={id}
-                          disabled={f.key === "roomState" && id === "DANG_THUE"}
+                          disabled={
+                            f.key === "roomState" &&
+                            ["DANG_THUE", "DA_DAT"].includes(id)
+                          }
                         >
                           {label}
                         </option>
@@ -293,6 +349,50 @@ function RecordForm({ schema, record, onClose }) {
               );
             })}
         </div>
+        {isNewContract && hold && (
+          <p className="field-hint">
+            Giữ chỗ #{hold.id}: {hold.name} · {hold.phone} · đã nhận cọc giữ chỗ{" "}
+            {money(hold.holdDeposit)} (trừ vào tiền cọc hợp đồng khi thu).
+            {tenantChoice &&
+              tenantChoice !== "new" &&
+              hold.tenantProfileId &&
+              tenantChoice !== String(hold.tenantProfileId) &&
+              " Lưu ý: người đứng tên khác với người đã giữ chỗ."}
+          </p>
+        )}
+        {isNewContract && tenantChoice === "new" && (
+          <fieldset className="record-form-grid" key={hold?.id ?? "manual"}>
+            <legend>Hồ sơ người đứng tên mới</legend>
+            <label className="field">
+              <span>Họ và tên</span>
+              <input
+                name="newTenantName"
+                required
+                maxLength={255}
+                defaultValue={hold?.name || ""}
+              />
+            </label>
+            <label className="field">
+              <span>CCCD</span>
+              <input name="newTenantCccd" required maxLength={20} />
+            </label>
+            <label className="field">
+              <span>Điện thoại (không bắt buộc)</span>
+              <input
+                name="newTenantPhone"
+                type="tel"
+                maxLength={20}
+                defaultValue={hold?.phone || ""}
+              />
+            </label>
+            {hold && (
+              <p className="field-hint">
+                Hồ sơ sẽ được liên kết với tài khoản của {hold.name} để họ xem
+                hợp đồng và hóa đơn, không cần mã mời.
+              </p>
+            )}
+          </fieldset>
+        )}
         {error && (
           <p role="alert" className="form-error">
             {error}
@@ -889,22 +989,28 @@ export default function OwnerCollectionPage({ section }) {
                           )}
                           {schema.key === "contracts" ? (
                             <>
-                              <button
-                                className="text-button"
-                                onClick={() =>
-                                  setEnding({ id: row.id, action: "end" })
-                                }
-                              >
-                                Kết thúc
-                              </button>
-                              <button
-                                className="text-button danger-text"
-                                onClick={() =>
-                                  setEnding({ id: row.id, action: "cancel" })
-                                }
-                              >
-                                Hủy HĐ
-                              </button>
+                              {["DANG_HIEU_LUC", "HET_HAN"].includes(
+                                row.state,
+                              ) && (
+                                <button
+                                  className="text-button"
+                                  onClick={() =>
+                                    setEnding({ id: row.id, action: "end", row })
+                                  }
+                                >
+                                  Kết thúc
+                                </button>
+                              )}
+                              {row.state === "DANG_HIEU_LUC" && (
+                                <button
+                                  className="text-button danger-text"
+                                  onClick={() =>
+                                    setEnding({ id: row.id, action: "cancel", row })
+                                  }
+                                >
+                                  Hủy HĐ
+                                </button>
+                              )}
                             </>
                           ) : (
                             <button
@@ -1100,12 +1206,54 @@ export default function OwnerCollectionPage({ section }) {
                   <span>Lý do kết thúc</span>
                   <textarea name="reason" required maxLength={500} />
                 </label>
+                {(() => {
+                  const deposit = Number(ending.row?.deposit || 0);
+                  const debt = (data.invoices || [])
+                    .filter((x) => x.contractId === ending.id)
+                    .reduce((sum, x) => sum + Math.max(0, Number(x.remaining)), 0);
+                  const maxRefund = Math.max(0, deposit - debt);
+                  return (
+                    <>
+                      <p>
+                        Tiền cọc {money(deposit)} · Hóa đơn còn nợ {money(debt)} ·
+                        Hoàn trả tối đa <strong>{money(maxRefund)}</strong>
+                      </p>
+                      <label className="field">
+                        <span>Tiền cọc hoàn trả (₫)</span>
+                        <input
+                          type="number"
+                          name="depositRefund"
+                          required
+                          min={0}
+                          max={maxRefund}
+                          step={1}
+                          defaultValue={maxRefund}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Ghi chú quyết toán (không bắt buộc)</span>
+                        <textarea
+                          name="settlementNote"
+                          maxLength={500}
+                          placeholder="VD: trừ cọc bù tiền điện tháng cuối, hư hỏng..."
+                        />
+                      </label>
+                    </>
+                  );
+                })()}
               </>
             ) : (
-              <p>
-                Hợp đồng chỉ được hủy khi thỏa các điều kiện nghiệp vụ. Lịch sử
-                vẫn được lưu.
-              </p>
+              <>
+                <p>
+                  Chỉ hủy hợp đồng chưa phát sinh hóa đơn (ví dụ khách không vào
+                  ở). Hợp đồng đã ở/đã tính tiền phải dùng Kết thúc để quyết
+                  toán cọc. Lịch sử vẫn được lưu.
+                </p>
+                <label className="field">
+                  <span>Lý do hủy</span>
+                  <textarea name="reason" required maxLength={500} />
+                </label>
+              </>
             )}
             {error && (
               <p className="form-error" role="alert">

@@ -472,7 +472,8 @@ export function ApiProvider({ children }) {
         `/owner/${key}/${id}${version != null ? `?version=${version}` : ""}`,
         "DELETE",
       ),
-    respond: (id, status) => mutate(`/requests/${id}`, "PATCH", { status }),
+    respond: (id, status, extra = {}) =>
+      mutate(`/requests/${id}`, "PATCH", { ...extra, status }),
     uploadFiles: async (files) => {
       const formData = new FormData();
       for (const file of files) {

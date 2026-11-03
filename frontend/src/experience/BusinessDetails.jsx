@@ -680,6 +680,27 @@ export function ContractModal({ contract, editable = false, onClose }) {
               </strong>
             </div>
           )}
+          {contract.depositRefund != null && (
+            <div
+              className="customer-info-item"
+              style={{ gridColumn: "1 / -1" }}
+            >
+              <span>Quyết toán cọc</span>
+              <strong>
+                Hoàn trả {money(contract.depositRefund)}
+                {contract.settlementNote ? ` · ${contract.settlementNote}` : ""}
+              </strong>
+            </div>
+          )}
+          {!contract.actualEnd && contract.endReason && (
+            <div
+              className="customer-info-item"
+              style={{ gridColumn: "1 / -1" }}
+            >
+              <span>Lý do hủy</span>
+              <strong>{contract.endReason}</strong>
+            </div>
+          )}
         </div>
 
         <h3 className="members-title" style={{ marginTop: "24px" }}>
