@@ -285,7 +285,9 @@ FROM hoa_don i JOIN hop_dong h ON h.id=i.hop_dong_id JOIN phong p ON p.id=h.phon
                 + " time,v.name,v.phone,v.request_type type,v.note,IF(v.status=? AND"
                 + " TIMESTAMP(v.visit_date,v.visit_time)<?,?,v.status) status,"
                 + "TIMESTAMP(v.visit_date,v.visit_time)<? past,v.hold_deposit holdDeposit,"
-                + "v.hold_until holdUntil,v.contract_id contractId,p.id roomRecordId,p.so_phong"
+                + "v.hold_until holdUntil,v.contract_id contractId,p.id roomRecordId,p.gia_thue"
+                + " roomPrice,(SELECT MIN(n.id) FROM nguoi_thue n WHERE n.tai_khoan_id=v.account_id"
+                + " AND n.chu_tro_id=b.chu_tro_id) tenantProfileId,p.so_phong"
                 + " room,b.ten_nha_tro building,l.tieu_de title FROM portal_viewing_request v JOIN"
                 + " tin_dang l ON l.id=v.listing_id JOIN phong p ON p.id=l.phong_id JOIN nha_tro b"
                 + " ON b.id=p.nha_tro_id WHERE "
@@ -406,25 +408,58 @@ FROM hoa_don i JOIN hop_dong h ON h.id=i.hop_dong_id JOIN phong p ON p.id=h.phon
           em.flush();
           return;
         }
-        // Hợp đồng phải có người đại diện ngay khi lập.
-        if (optional(d, "tenantId", 20).isEmpty())
-          throw new BusinessException("Hợp đồng cần có người thuê đại diện.");
-        int tenant = integer(d, "tenantId");
-        owned(owner, "tenants", tenant);
+        // Hợp đồng phải có người đứng tên ngay khi lập.
+        String tenantChoice = optional(d, "tenantId", 20);
+        if (tenantChoice.isEmpty())
+          throw new BusinessException("Hợp đồng cần có người đứng tên.");
         // Lập từ yêu cầu giữ chỗ (nếu có): khóa phòng trước rồi tới yêu cầu, cùng thứ tự với
         // requestStatus để tránh deadlock.
         Integer hold = optional(d, "requestId", 20).isEmpty() ? null : integer(d, "requestId");
+        Long requester = null;
         if (hold != null) {
           db.queryForList("SELECT id FROM phong WHERE id=? FOR UPDATE", room);
           var held =
               db.queryForList(
-                  "SELECT v.status,l.phong_id room FROM portal_viewing_request v JOIN tin_dang l"
-                      + " ON l.id=v.listing_id WHERE v.id=? FOR UPDATE",
+                  "SELECT v.status,v.account_id,l.phong_id room FROM portal_viewing_request v"
+                      + " JOIN tin_dang l ON l.id=v.listing_id WHERE v.id=? FOR UPDATE",
                   hold);
           if (held.isEmpty()
               || ((Number) held.getFirst().get("room")).intValue() != room
               || !ViewingRequests.DA_GIU_CHO.equals(held.getFirst().get("status")))
             throw new BusinessException("Yêu cầu giữ chỗ không hợp lệ cho phòng này.");
+          requester = ((Number) held.getFirst().get("account_id")).longValue();
+        }
+        int tenant;
+        if ("new".equals(tenantChoice)) {
+          // Tạo nhanh hồ sơ người đứng tên ngay trong form hợp đồng.
+          tenant =
+              tenants
+                  .create(
+                      valid(
+                          new NguoiThueRequest(
+                              text(d, "newTenantName", 255),
+                              text(d, "newTenantCccd", 20),
+                              optional(d, "newTenantPhone", 20),
+                              null,
+                              "")))
+                  .id();
+          em.flush();
+          // Hồ sơ tạo từ yêu cầu giữ chỗ: liên kết luôn với tài khoản người giữ chỗ (nếu tài
+          // khoản đó chưa liên kết hồ sơ nào của chủ trọ này) để họ thấy hợp đồng, hóa đơn.
+          if (requester != null
+              && db.queryForObject(
+                      "SELECT COUNT(*) FROM nguoi_thue WHERE tai_khoan_id=? AND chu_tro_id=?",
+                      Integer.class,
+                      requester,
+                      accounts.ownerId(owner))
+                  == 0)
+            db.update(
+                "UPDATE nguoi_thue SET tai_khoan_id=? WHERE id=? AND tai_khoan_id IS NULL",
+                requester,
+                tenant);
+        } else {
+          tenant = integer(d, "tenantId");
+          owned(owner, "tenants", tenant);
         }
         int contract = contracts.create(req, hold != null).id();
         em.flush();

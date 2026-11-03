@@ -558,6 +558,60 @@ class ExperienceIntegrationTests {
   }
 
   @Test
+  void contractFromHoldCreatesLinkedProfile() throws Exception {
+    Client owner = new Client(), a = new Client();
+    owner.register("owner");
+    a.register("tenant");
+    owner.create(
+        "buildings",
+        Map.of("name", "Profile building", "address", "Profile address", "city", "Hà Nội",
+            "district", "Profile district", "manager", "Profile manager"));
+    owner.create(
+        "rooms",
+        Map.of("number", "P-" + UUID.randomUUID().toString().substring(0, 8), "area", 20,
+            "price", 2800000, "buildingId", owner.first("buildings"), "type", "Studio"));
+    int room = owner.first("rooms");
+    owner.create(
+        "listings",
+        Map.of("roomId", room, "title", "Profile listing", "description", "Profile room",
+            "phone", "0900000006", "images", "https://example.com/profile.jpg",
+            "published", false));
+    int listing =
+        db.queryForObject("SELECT id FROM tin_dang WHERE phong_id=?", Integer.class, room);
+    db.update("UPDATE tin_dang SET trang_thai='DA_DUYET' WHERE id=?", listing);
+    a.request(
+        "POST", "/requests",
+        Map.of("roomId", listing, "name", "Khách giữ chỗ", "phone", "0900000007", "date",
+            day(1), "time", "09:00", "type", "Đăng ký thuê"),
+        200);
+    int hold = a.first("requests");
+    owner.request(
+        "PATCH", "/requests/" + hold,
+        Map.of("status", "Đã giữ chỗ", "holdDeposit", 500000, "holdUntil", day(3)), 200);
+    var held = byId(owner.state().get("requests"), hold);
+    assertThat(held.get("roomRecordId").asInt()).isEqualTo(room);
+    assertThat(held.get("roomPrice").asLong()).isEqualTo(2800000);
+    assertThat(held.get("tenantProfileId").isNull()).isTrue();
+
+    var contract = new HashMap<String, Object>(
+        Map.of("roomId", room, "requestId", hold, "tenantId", "new", "newTenantName",
+            "Khách giữ chỗ", "newTenantPhone", "0900000007", "start", day(0), "end",
+            day(365), "price", 2800000, "deposit", 2800000));
+    // Thiếu CCCD thì không tạo được hồ sơ.
+    owner.request("POST", "/owner/contracts", contract, 400);
+    contract.put("newTenantCccd", UUID.randomUUID().toString().substring(0, 12));
+    owner.request("POST", "/owner/contracts", contract, 200);
+    int created = owner.first("contracts");
+    var profile = byId(owner.state().get("tenants"), owner.first("tenants"));
+    assertThat(profile.get("name").asText()).isEqualTo("Khách giữ chỗ");
+    assertThat(profile.get("linked").asBoolean()).isTrue();
+    // Người giữ chỗ thấy hợp đồng mà không cần mã mời.
+    assertThat(a.state().get("contracts").get(0).get("id").asInt()).isEqualTo(created);
+    assertThat(byId(owner.state().get("requests"), hold).get("tenantProfileId").asInt())
+        .isEqualTo(profile.get("id").asInt());
+  }
+
+  @Test
   void expiredHoldReleasesRoom() throws Exception {
     Client owner = new Client(), a = new Client();
     owner.register("owner");

@@ -122,15 +122,17 @@ export const schemas = {
       ["status", "Trạng thái"],
     ],
     fields: [
-      select("roomId", "Phòng", "rooms"),
       {
-        ...select("tenantId", "Đại diện ban đầu", "tenants"),
-        createOnly: true,
-      },
-      {
-        ...select("requestId", "Từ yêu cầu giữ chỗ", "heldRequests"),
+        ...select("requestId", "Lập từ yêu cầu giữ chỗ", "heldRequests"),
         createOnly: true,
         optional: true,
+        hint: "Chọn để tự điền phòng, giá thuê và người đứng tên.",
+      },
+      select("roomId", "Phòng", "rooms"),
+      {
+        ...select("tenantId", "Người đứng tên hợp đồng", "tenants"),
+        createOnly: true,
+        hint: "Chọn từ hồ sơ Người thuê hoặc tạo hồ sơ mới. Người ở cùng thêm sau trong chi tiết hợp đồng.",
       },
       date("start", "Ngày bắt đầu"),
       date("end", "Ngày kết thúc"),
