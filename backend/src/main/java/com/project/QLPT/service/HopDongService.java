@@ -1,12 +1,17 @@
 package com.project.QLPT.service;
 
 import java.util.List;
+import java.util.Set;
+import org.springframework.data.domain.Sort;
+import org.springframework.transaction.annotation.Isolation;
+import com.project.QLPT.dto.response.PageResponse;
+import com.project.QLPT.repository.specification.OwnerSpecifications;
+import com.project.QLPT.service.support.PageSupport;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
 import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityManager;
@@ -16,7 +21,6 @@ import jakarta.persistence.PersistenceContext;
 import com.project.QLPT.dto.request.HopDongRequest;
 import com.project.QLPT.dto.request.KetThucHopDongRequest;
 import com.project.QLPT.dto.response.HopDongResponse;
-import org.springframework.transaction.annotation.Isolation;
 import com.project.QLPT.entity.HopDong;
 import com.project.QLPT.entity.ThanhVienHopDong;
 import com.project.QLPT.entity.Phong;
@@ -45,6 +49,8 @@ import lombok.RequiredArgsConstructor;
 public class HopDongService {
 
   private final HopDongRepository hopDongRepository;
+  private final CurrentAccountService currentAccount;
+  private final OwnedContractAccess access;
   private final PhongRepository phongRepository;
   private final ThanhVienHopDongRepository thanhVienHopDongRepository;
 
@@ -103,7 +109,7 @@ public class HopDongService {
         TrangThaiPhong.DANG_THUE);
 
     return toResponse(
-        hopDongRepository.save(entity));
+        hopDongRepository.saveAndFlush(entity));
   }
 
   /**
@@ -126,7 +132,8 @@ public class HopDongService {
   @Transactional(readOnly = true)
   public List<HopDongResponse> getAll() {
 
-    return hopDongRepository.findAll()
+    return hopDongRepository.findAll(OwnerSpecifications.hopDong(
+            currentAccount.getChuTro().getId(), null, null), Sort.by("id"))
         .stream()
         .map(this::toResponse)
         .toList();
@@ -242,6 +249,7 @@ public class HopDongService {
       if (thanhVien.getNgayRoi() == null) {
         thanhVien.setNgayRoi(ngayKetThuc);
       }
+      thanhVien.setLaDaiDien(false);
     }
 
     entity.setNgayKetThucThucTe(ngayKetThuc);
@@ -329,84 +337,18 @@ public class HopDongService {
    * @return entity hợp đồng tương ứng
    * @throws ResourceNotFoundException nếu không tìm thấy hợp đồng
    */
-  private HopDong findEntity(Integer id) {
-
-    return hopDongRepository.findById(id)
-        .orElseThrow(
-            () -> new ResourceNotFoundException(
-                "Không tìm thấy hợp đồng id = "
-                    + id));
-  }
-
-  /**
-   * Tìm phòng theo ID.
-   *
-   * @param id ID của phòng
-   * @return entity phòng tương ứng
-   * @throws ResourceNotFoundException nếu không tìm thấy phòng
-   */
-  private Phong findPhong(Integer id) {
-
-    return phongRepository.findById(id)
-        .orElseThrow(
-            () -> new ResourceNotFoundException(
-                "Không tìm thấy phòng id = "
-                    + id));
-  }
+  private HopDong findEntity(Integer id) { return access.get(id); }
 
   private Phong findPhongForUpdate(Integer id) {
-    Phong phong = entityManager.find(
-        Phong.class,
-        id,
-        LockModeType.PESSIMISTIC_WRITE
-    );
-
-    if (phong == null) {
-      throw new ResourceNotFoundException(
-          "Không tìm thấy phòng id = " + id
-      );
-    }
-
-    // Đọc lại trạng thái mới nhất nếu entity đã được nạp trước đó.
-    entityManager.refresh(
-        phong,
-        LockModeType.PESSIMISTIC_WRITE
-    );
-
-    return phong;
+    var room = phongRepository.findOwnedForUpdate(id, currentAccount.getChuTro().getId())
+        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng"));
+    entityManager.refresh(room, LockModeType.PESSIMISTIC_WRITE);
+    return room;
   }
 
-  private HopDong findHopDongForUpdate(Integer id) {
-    HopDong entity = entityManager.find(
-        HopDong.class,
-        id,
-        LockModeType.PESSIMISTIC_WRITE
-    );
+  private HopDong findHopDongForUpdate(Integer id) { return access.lock(id); }
 
-    if (entity == null) {
-      throw new ResourceNotFoundException(
-          "Không tìm thấy hợp đồng id = " + id
-      );
-    }
-
-    entityManager.refresh(
-        entity,
-        LockModeType.PESSIMISTIC_WRITE
-    );
-
-    return entity;
-  }
-
-  private HopDong findHopDongForClose(Integer id) {
-    // Chỉ đọc để xác định phòng. Mã hiện tại không cho đổi phòng.
-    HopDong entity = findEntity(id);
-
-    // Thống nhất thứ tự: khóa phòng trước, hợp đồng sau.
-    findPhongForUpdate(entity.getPhong().getId());
-
-    // Đọc lại trạng thái hợp đồng sau khi lấy khóa.
-    return findHopDongForUpdate(id);
-  }
+  private HopDong findHopDongForClose(Integer id) { return access.lock(id); }
 
   private void validateThanhVienTrongThoiHan(
       Integer hopDongId,
@@ -458,7 +400,18 @@ public class HopDongService {
         entity.getTienCoc(),
         entity.getTrangThai(),
         entity.getNgayKetThucThucTe(),
-        entity.getLyDoKetThuc()
+        entity.getLyDoKetThuc(),
+        entity.getPhong().getNhaTro().getId(),
+        entity.getPhong().getNhaTro().getTenNhaTro()
     );
+  }
+
+  @Transactional(readOnly = true)
+  public PageResponse<HopDongResponse> getPage(int page, int size, String keyword,
+      TrangThaiHopDong trangThai) {
+    var pageable = PageSupport.pageable(page, size, "id", "desc", Set.of("id"));
+    return PageSupport.response(hopDongRepository.findAll(
+        OwnerSpecifications.hopDong(currentAccount.getChuTro().getId(), keyword, trangThai),
+        pageable), this::toResponse);
   }
 }

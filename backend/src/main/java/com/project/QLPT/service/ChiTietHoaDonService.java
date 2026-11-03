@@ -3,6 +3,7 @@ package com.project.QLPT.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import com.project.QLPT.service.support.InvoiceAmounts;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -46,7 +47,8 @@ import lombok.RequiredArgsConstructor;
 public class ChiTietHoaDonService {
 
     private final ChiTietHoaDonRepository chiTietHoaDonRepository;
-    private final HoaDonRepository hoaDonRepository;
+    private final OwnedInvoiceAccess invoices;
+    private final CurrentAccountService currentAccount;
     private final DichVuRepository dichVuRepository;
     private final ThanhToanRepository thanhToanRepository;
 
@@ -110,7 +112,7 @@ public class ChiTietHoaDonService {
             .donGia(donGia)
             .build();
 
-        return toResponse(chiTietHoaDonRepository.save(entity));
+        return toResponse(chiTietHoaDonRepository.saveAndFlush(entity));
     }
 
     /**
@@ -125,7 +127,7 @@ public class ChiTietHoaDonService {
 
         findHoaDon(hoaDonId);
 
-        return chiTietHoaDonRepository.findByHoaDon_Id(hoaDonId)
+        return chiTietHoaDonRepository.findOwnedLines(hoaDonId, currentAccount.getChuTro().getId())
             .stream()
             .map(this::toResponse)
             .toList();
@@ -172,7 +174,8 @@ public class ChiTietHoaDonService {
                 "Không được thay đổi đơn giá đã chốt của dòng hóa đơn");
         }
 
-        BigDecimal soLuong = tinhSoLuong(entity.getDichVu(), request);
+        DichVu dichVu = findDichVu(entity.getDichVu().getId());
+        BigDecimal soLuong = tinhSoLuong(dichVu, request);
 
         entity.setChiSoCu(request.chiSoCu());
         entity.setChiSoMoi(request.chiSoMoi());
@@ -201,6 +204,7 @@ public class ChiTietHoaDonService {
         ChiTietHoaDon entity = findChiTiet(hoaDonId, chiTietId);
 
         chiTietHoaDonRepository.delete(entity);
+        chiTietHoaDonRepository.flush();
     }
 
     /**
@@ -293,68 +297,22 @@ public class ChiTietHoaDonService {
     /**
      * Tìm hóa đơn phục vụ thao tác đọc.
      */
-    private HoaDon findHoaDon(Integer id) {
+    private HoaDon findHoaDon(Integer id) { return invoices.get(id); }
 
-        return hoaDonRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException(
-                "Không tìm thấy hóa đơn id = " + id));
-    }
+    private HoaDon findHoaDonForUpdate(Integer id) { return invoices.lock(id); }
 
-    /**
-     * Tìm và khóa ghi hóa đơn phục vụ thao tác thay đổi dữ liệu.
-     *
-     * <p>
-     * Phải gọi trong transaction và trước khi thay đổi Entity.
-     * Khóa được giữ đến khi transaction commit hoặc rollback.
-     * </p>
-     */
-    private HoaDon findHoaDonForUpdate(Integer id) {
-
-        HoaDon entity = entityManager.find(
-            HoaDon.class,
-            id,
-            LockModeType.PESSIMISTIC_WRITE);
-
-        if (entity == null) {
-            throw new ResourceNotFoundException(
-                "Không tìm thấy hóa đơn id = " + id);
-        }
-
-        // Đọc lại trạng thái mới nhất sau khi lấy khóa.
-        entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
-
-        return entity;
-    }
-
-    /**
-     * Tìm dịch vụ theo ID.
-     */
     private DichVu findDichVu(Integer id) {
-
-        return dichVuRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException(
-                "Không tìm thấy dịch vụ id = " + id));
+        // Hóa đơn trước, dịch vụ sau; khóa cùng dịch vụ với cập nhật/xóa dịch vụ.
+        var service = dichVuRepository.findOwnedForUpdate(id, currentAccount.getChuTro().getId())
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dịch vụ"));
+        entityManager.refresh(service, LockModeType.PESSIMISTIC_WRITE);
+        return service;
     }
 
-    /**
-     * Tìm dòng chi tiết và kiểm tra dòng thuộc đúng hóa đơn.
-     */
-    private ChiTietHoaDon findChiTiet(
-        Integer hoaDonId,
-        Integer chiTietId) {
-
-        ChiTietHoaDon entity = chiTietHoaDonRepository.findById(chiTietId)
-            .orElseThrow(() -> new ResourceNotFoundException(
-                "Không tìm thấy dòng chi tiết hóa đơn id = "
-                    + chiTietId));
-
-        if (!entity.getHoaDon().getId().equals(hoaDonId)) {
-            throw new ResourceNotFoundException(
-                "Dòng chi tiết id = " + chiTietId
-                    + " không thuộc hóa đơn id = " + hoaDonId);
-        }
-
-        return entity;
+    private ChiTietHoaDon findChiTiet(Integer hoaDonId, Integer chiTietId) {
+        return chiTietHoaDonRepository.findOwnedLine(hoaDonId, chiTietId,
+                currentAccount.getChuTro().getId())
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dòng chi tiết"));
     }
 
     /**
@@ -362,9 +320,7 @@ public class ChiTietHoaDonService {
      */
     private ChiTietHoaDonResponse toResponse(ChiTietHoaDon entity) {
 
-        BigDecimal thanhTien = entity.getSoLuong()
-            .multiply(entity.getDonGia())
-            .setScale(0, RoundingMode.HALF_UP);
+        BigDecimal thanhTien = InvoiceAmounts.lineTotal(entity.getSoLuong(), entity.getDonGia());
 
         return new ChiTietHoaDonResponse(
             entity.getId(),
@@ -376,6 +332,6 @@ public class ChiTietHoaDonService {
             entity.getChiSoMoi(),
             entity.getSoLuong(),
             entity.getDonGia(),
-            thanhTien);
+            thanhTien, entity.getDichVu().getTinhTheoChiSo());
     }
 }

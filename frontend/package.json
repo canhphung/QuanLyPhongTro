@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
+    "lint": "oxlint src vite.config.js",
+    "preview": "vite preview",
+    "test": "node scripts/verify-integration.mjs",
+    "test:ui": "node scripts/verify-integration.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

@@ -5,6 +5,8 @@ import java.time.LocalDate;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Digits;
 
 /**
  * DTO chứa dữ liệu yêu cầu khi tạo mới hoặc cập nhật một hóa đơn.
@@ -26,7 +28,7 @@ import jakarta.validation.constraints.NotNull;
  */
 public record HoaDonRequest(
 
-                @NotNull(message = "Mã hợp đồng không được để trống") Integer hopDongId,
+                @NotNull(message = "Mã hợp đồng không được để trống") @Positive Integer hopDongId,
 
                 @NotNull(message = "Kỳ thanh toán không được để trống") LocalDate kyThanhToan,
 
@@ -34,5 +36,5 @@ public record HoaDonRequest(
 
                 @NotNull(message = "Hạn thanh toán không được để trống") LocalDate hanThanhToan,
 
-                @DecimalMin(value = "0", message = "Tiền phòng không được là số âm") BigDecimal tienPhong) {
+                @DecimalMin(value = "0", message = "Tiền phòng không được là số âm") @Digits(integer = 19, fraction = 0) BigDecimal tienPhong) {
 }

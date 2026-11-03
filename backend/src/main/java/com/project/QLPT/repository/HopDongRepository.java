@@ -12,7 +12,7 @@ import com.project.QLPT.enums.TrangThaiHopDong;
  * và bổ sung các truy vấn phục vụ nghiệp vụ quản lý hợp đồng thuê phòng.</p>
  */
 public interface HopDongRepository
-    extends JpaRepository<HopDong, Integer> {
+    extends JpaRepository<HopDong, Integer>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<HopDong> {
 
   /**
    * Kiểm tra xem một phòng có tồn tại hợp đồng với trạng thái được chỉ định hay không.
@@ -45,4 +45,25 @@ public interface HopDongRepository
   boolean existsByPhong_Id(Integer phongId);
 
   long countByTrangThai(TrangThaiHopDong trangThai);
+
+  @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"phong", "phong.nhaTro"})
+  java.util.Optional<HopDong> findByIdAndPhong_NhaTro_ChuTro_Id(Integer id, Integer ownerId);
+
+  @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+  @org.springframework.data.jpa.repository.Query("select h from HopDong h where h.id = :id and h.phong.nhaTro.chuTro.id = :ownerId")
+  java.util.Optional<HopDong> findOwnedForUpdate(
+      @org.springframework.data.repository.query.Param("id") Integer id,
+      @org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
+
+  @Override
+  @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"phong", "phong.nhaTro"})
+  org.springframework.data.domain.Page<HopDong> findAll(
+      org.springframework.data.jpa.domain.Specification<HopDong> specification,
+      org.springframework.data.domain.Pageable pageable);
+
+  @Override
+  @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"phong", "phong.nhaTro"})
+  java.util.List<HopDong> findAll(
+      org.springframework.data.jpa.domain.Specification<HopDong> specification,
+      org.springframework.data.domain.Sort sort);
 }

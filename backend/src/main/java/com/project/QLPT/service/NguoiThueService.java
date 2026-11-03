@@ -1,6 +1,13 @@
 package com.project.QLPT.service;
 
 import java.util.List;
+import java.util.Set;
+import org.springframework.data.domain.Sort;
+import org.springframework.transaction.annotation.Isolation;
+import com.project.QLPT.dto.response.PageResponse;
+import com.project.QLPT.repository.specification.OwnerSpecifications;
+import com.project.QLPT.service.support.PageSupport;
+import jakarta.persistence.*;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +37,8 @@ import lombok.RequiredArgsConstructor;
 public class NguoiThueService {
 
     private final NguoiThueRepository nguoiThueRepository;
+    private final CurrentAccountService currentAccount;
+    @PersistenceContext private EntityManager entityManager;
     private final ThanhVienHopDongRepository thanhVienHopDongRepository;
 
     /**
@@ -37,7 +46,7 @@ public class NguoiThueService {
      *
      * <p>
      * CCCD được chuẩn hóa bằng cách loại bỏ khoảng trắng ở hai đầu
-     * và phải là duy nhất trong hệ thống. Các trường không bắt buộc
+     * và phải là duy nhất trong dữ liệu của chủ trọ. Các trường không bắt buộc
      * được chuẩn hóa về {@code null} nếu chỉ chứa khoảng trắng.
      * </p>
      *
@@ -47,14 +56,15 @@ public class NguoiThueService {
      */
     @Transactional
     public NguoiThueResponse create(NguoiThueRequest request) {
+        var owner = currentAccount.getChuTro();
 
         String cccd = request.cccd().trim();
 
-        if (nguoiThueRepository.existsByCccd(cccd)) {
+        if (nguoiThueRepository.existsByChuTro_IdAndCccd(owner.getId(), cccd)) {
             throw new BusinessException("CCCD đã tồn tại");
         }
 
-        NguoiThue entity = NguoiThue.builder()
+        NguoiThue entity = NguoiThue.builder().chuTro(owner)
                 .hoTen(request.hoTen().trim())
                 .cccd(cccd)
                 .soDienThoai(trimToNull(request.soDienThoai()))
@@ -63,7 +73,7 @@ public class NguoiThueService {
                 .build();
 
         return toResponse(
-                nguoiThueRepository.save(entity));
+                nguoiThueRepository.saveAndFlush(entity));
     }
 
     /**
@@ -87,7 +97,7 @@ public class NguoiThueService {
     @Transactional(readOnly = true)
     public List<NguoiThueResponse> getAll() {
 
-        return nguoiThueRepository.findAll()
+        return nguoiThueRepository.findAll(OwnerSpecifications.nguoiThue(currentAccount.getChuTro().getId(), null), Sort.by("id"))
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -98,7 +108,7 @@ public class NguoiThueService {
      *
      * <p>
      * Người thuê phải tồn tại và CCCD mới không được trùng
-     * với CCCD của người thuê khác trong hệ thống.
+     * với CCCD của người thuê khác trong dữ liệu của chủ trọ.
      * </p>
      *
      * @param id      ID của người thuê cần cập nhật
@@ -108,16 +118,16 @@ public class NguoiThueService {
      * @throws BusinessException         nếu CCCD đã được sử dụng bởi người thuê
      *                                   khác
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public NguoiThueResponse update(
             Integer id,
             NguoiThueRequest request) {
 
-        NguoiThue entity = findEntity(id);
+        NguoiThue entity = ownedForUpdate(id);
 
         String cccd = request.cccd().trim();
 
-        if (nguoiThueRepository.existsByCccdAndIdNot(cccd, id)) {
+        if (nguoiThueRepository.existsByChuTro_IdAndCccdAndIdNot(currentAccount.getChuTro().getId(), cccd, id)) {
             throw new BusinessException("CCCD đã tồn tại");
         }
 
@@ -128,6 +138,7 @@ public class NguoiThueService {
         entity.setDiaChiThuongTru(
                 trimToNull(request.diaChiThuongTru()));
 
+        nguoiThueRepository.flush();
         return toResponse(entity);
     }
 
@@ -146,7 +157,7 @@ public class NguoiThueService {
     public List<NguoiThueResponse> searchByName(String keyword) {
 
         return nguoiThueRepository
-                .findByHoTenContainingIgnoreCase(keyword.trim())
+                .findAll(OwnerSpecifications.nguoiThue(currentAccount.getChuTro().getId(), keyword), Sort.by("id"))
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -164,10 +175,10 @@ public class NguoiThueService {
      * @throws ResourceNotFoundException nếu không tìm thấy người thuê
      * @throws BusinessException         nếu người thuê đã tham gia hợp đồng
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void delete(Integer id) {
 
-        NguoiThue entity = findEntity(id);
+        NguoiThue entity = ownedForUpdate(id);
 
         if (thanhVienHopDongRepository
                 .existsByNguoiThue_Id(id)) {
@@ -177,6 +188,7 @@ public class NguoiThueService {
         }
 
         nguoiThueRepository.delete(entity);
+        nguoiThueRepository.flush();
     }
 
     /**
@@ -188,7 +200,7 @@ public class NguoiThueService {
      */
     private NguoiThue findEntity(Integer id) {
 
-        return nguoiThueRepository.findById(id)
+        return nguoiThueRepository.findByIdAndChuTro_Id(id, currentAccount.getChuTro().getId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Không tìm thấy người thuê id = " + id));
     }
@@ -229,5 +241,19 @@ public class NguoiThueService {
         String result = value.trim();
 
         return result.isEmpty() ? null : result;
+    }
+
+    private NguoiThue ownedForUpdate(Integer id) {
+        var entity = nguoiThueRepository.findOwnedForUpdate(id, currentAccount.getChuTro().getId())
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người thuê"));
+        entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
+        return entity;
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<NguoiThueResponse> getPage(int page, int size, String keyword) {
+        var pageable = PageSupport.pageable(page, size, "id", "asc", Set.of("id"));
+        return PageSupport.response(nguoiThueRepository.findAll(OwnerSpecifications.nguoiThue(
+            currentAccount.getChuTro().getId(), keyword), pageable), this::toResponse);
     }
 }

@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Digits;
 
 /**
  * DTO chứa dữ liệu yêu cầu khi thêm hoặc sửa một dòng chi tiết hóa đơn.
@@ -31,13 +33,13 @@ import jakarta.validation.constraints.NotNull;
  */
 public record ChiTietHoaDonRequest(
 
-                @NotNull(message = "Mã dịch vụ không được để trống") Integer dichVuId,
+                @NotNull(message = "Mã dịch vụ không được để trống") @Positive Integer dichVuId,
 
-                BigDecimal chiSoCu,
+                @Digits(integer = 16, fraction = 3) BigDecimal chiSoCu,
 
-                BigDecimal chiSoMoi,
+                @Digits(integer = 16, fraction = 3) BigDecimal chiSoMoi,
 
-                @DecimalMin(value = "0", message = "Số lượng không được là số âm") BigDecimal soLuong,
+                @DecimalMin(value = "0", message = "Số lượng không được là số âm") @Digits(integer = 16, fraction = 3) BigDecimal soLuong,
 
-                @DecimalMin(value = "0", message = "Đơn giá không được là số âm") BigDecimal donGia) {
+                @DecimalMin(value = "0", message = "Đơn giá không được là số âm") @Digits(integer = 19, fraction = 0) BigDecimal donGia) {
 }

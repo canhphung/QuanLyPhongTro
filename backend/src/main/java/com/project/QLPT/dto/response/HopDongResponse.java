@@ -1,6 +1,7 @@
 package com.project.QLPT.dto.response;
 
 import java.math.BigDecimal;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.LocalDate;
 
 import com.project.QLPT.enums.TrangThaiHopDong;
@@ -23,10 +24,12 @@ public record HopDongResponse(
     String soPhong,
     LocalDate ngayBatDau,
     LocalDate ngayKetThuc,
-    BigDecimal giaThueThoaThuan,
-    BigDecimal tienCoc,
+    @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal giaThueThoaThuan,
+    @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal tienCoc,
     TrangThaiHopDong trangThai,
     LocalDate ngayKetThucThucTe,
-    String lyDoKetThuc
+    String lyDoKetThuc,
+    Integer nhaTroId,
+    String tenNhaTro
 ) {
 }

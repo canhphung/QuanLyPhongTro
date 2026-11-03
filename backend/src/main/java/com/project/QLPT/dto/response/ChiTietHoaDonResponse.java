@@ -1,6 +1,7 @@
 package com.project.QLPT.dto.response;
 
 import java.math.BigDecimal;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 /**
  * DTO chứa thông tin một dòng chi tiết hóa đơn được trả về cho client.
@@ -36,13 +37,13 @@ public record ChiTietHoaDonResponse(
 
                 String donViTinh,
 
-                BigDecimal chiSoCu,
+                @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal chiSoCu,
 
-                BigDecimal chiSoMoi,
+                @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal chiSoMoi,
 
-                BigDecimal soLuong,
+                @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal soLuong,
 
-                BigDecimal donGia,
+                @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal donGia,
 
-                BigDecimal thanhTien) {
+                @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal thanhTien, Boolean tinhTheoChiSo) {
 }
