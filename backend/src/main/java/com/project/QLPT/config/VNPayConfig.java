@@ -14,16 +14,16 @@ import org.springframework.context.annotation.Configuration;
 @Getter
 public class VNPayConfig {
 
-  @Value("${vnpay.tmn-code:RTUAGMBD}")
+  @Value("${vnpay.tmn-code:}")
   private String tmnCode;
 
-  @Value("${vnpay.hash-secret:FVNTWBSNNOKMGVRMARXUEDPESLSRJDLJ}")
+  @Value("${vnpay.hash-secret:}")
   private String hashSecret;
 
   @Value("${vnpay.pay-url:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}")
   private String payUrl;
 
-  @Value("${vnpay.return-url:http://localhost:5173/thanh-toan/ket-qua}")
+  @Value("${vnpay.return-url:http://localhost:5174/thanh-toan/ket-qua}")
   private String returnUrl;
 
   @Value("${vnpay.version:2.1.0}")
@@ -73,26 +73,31 @@ public class VNPayConfig {
     return ipAddress != null ? ipAddress : "127.0.0.1";
   }
 
-  public static String hashAllFields(Map<String, String> fields, String secretKey) {
-    List<String> fieldNames = new ArrayList<>(fields.keySet());
-    Collections.sort(fieldNames);
-    StringBuilder sb = new StringBuilder();
-    Iterator<String> itr = fieldNames.iterator();
-    while (itr.hasNext()) {
-      String fieldName = itr.next();
-      String fieldValue = fields.get(fieldName);
-      if (fieldValue != null && !fieldValue.isEmpty()) {
-        try {
-          sb.append(fieldName);
-          sb.append("=");
-          sb.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
-          if (itr.hasNext()) {
-            sb.append("&");
-          }
-        } catch (Exception ignored) {
-        }
-      }
+  /** Đã cấu hình mã website và khóa bí mật (qua biến môi trường) hay chưa. */
+  public boolean isConfigured() {
+    return tmnCode != null && !tmnCode.isBlank() && hashSecret != null && !hashSecret.isBlank();
+  }
+
+  /**
+   * Chuỗi tham số đã sắp xếp theo tên và mã hóa URL, bỏ qua giá trị rỗng. Dùng chung cho cả chuỗi
+   * ký và query string để hai bên luôn khớp (không sinh dấu {@code &} thừa khi tham số cuối rỗng).
+   */
+  public static String canonicalQuery(Map<String, String> fields) {
+    List<String> names = new ArrayList<>(fields.keySet());
+    Collections.sort(names);
+    List<String> parts = new ArrayList<>();
+    for (String name : names) {
+      String value = fields.get(name);
+      if (value == null || value.isEmpty()) continue;
+      parts.add(
+          URLEncoder.encode(name, StandardCharsets.US_ASCII)
+              + "="
+              + URLEncoder.encode(value, StandardCharsets.US_ASCII));
     }
-    return hmacSHA512(secretKey, sb.toString());
+    return String.join("&", parts);
+  }
+
+  public static String hashAllFields(Map<String, String> fields, String secretKey) {
+    return hmacSHA512(secretKey, canonicalQuery(fields));
   }
 }

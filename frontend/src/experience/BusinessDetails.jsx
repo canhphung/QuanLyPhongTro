@@ -47,16 +47,11 @@ export function InvoiceModal({ invoice, editable = false, onClose }) {
     setPayingVNPay(true);
     setError("");
     try {
-      const res = await fetch("/api/payment/vnpay/create-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          invoiceId: invoice.id,
-          amount: invoice.remaining,
-        }),
+      // Gọi qua ApiProvider: gửi cookie phiên + CSRF và dùng đúng VITE_API_URL.
+      const resData = await data.call("/api/payment/vnpay/create-payment", "POST", {
+        invoiceId: invoice.id,
+        amount: invoice.remaining,
       });
-      const resData = await res.json();
-      if (!res.ok) throw new Error(resData.message || "Tạo liên kết thanh toán VNPAY thất bại");
       if (resData.paymentUrl) {
         window.location.href = resData.paymentUrl;
       }
@@ -262,7 +257,7 @@ export function InvoiceModal({ invoice, editable = false, onClose }) {
           {displayDate(invoice.due)}.
         </div>
 
-        {/* Cổng thanh toán VNPAY & VietQR Tự động */}
+        {/* Cổng thanh toán VNPAY (gạch nợ tự động) */}
         {!isPaid && (
           <div
             className="no-print"
@@ -298,7 +293,7 @@ export function InvoiceModal({ invoice, editable = false, onClose }) {
                   <ShieldCheck size={18} color="#16a34a" /> Cổng thanh toán tự động (Gạch nợ tức thì)
                 </span>
                 <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#15803D" }}>
-                  Hỗ trợ VNPAY-QR, Thẻ ATM 40+ ngân hàng nội địa, Visa/Mastercard và VietQR chuyển khoản nhanh.
+                  Hỗ trợ VNPAY-QR, thẻ ATM nội địa và thẻ quốc tế. Thanh toán thành công sẽ tự gạch nợ hóa đơn.
                 </p>
               </div>
 
@@ -332,7 +327,7 @@ export function InvoiceModal({ invoice, editable = false, onClose }) {
                   onClick={() => setShowVietQR(!showVietQR)}
                 >
                   <QrCode size={16} />
-                  {showVietQR ? "Ẩn mã VietQR" : "Xem mã VietQR"}
+                  {showVietQR ? "Ẩn thẻ thử nghiệm" : "Thẻ thử nghiệm"}
                   {showVietQR ? (
                     <ChevronUp size={14} />
                   ) : (
@@ -347,110 +342,16 @@ export function InvoiceModal({ invoice, editable = false, onClose }) {
                 style={{
                   background: "#FFFFFF",
                   borderRadius: "12px",
-                  padding: "16px",
+                  padding: "12px 16px",
                   border: "1px solid #DCFCE7",
-                  display: "flex",
-                  gap: "20px",
-                  alignItems: "center",
-                  flexWrap: "wrap",
+                  fontSize: "12.5px",
+                  color: "#64748B",
                 }}
               >
-                <div style={{ textAlign: "center", flexShrink: 0 }}>
-                  <img
-                    src={`https://img.vietqr.io/image/970419-88888888-compact2.png?amount=${invoice.remaining}&addInfo=HD${invoice.id}%20P${invoice.room}&accountName=QUAN%20LY%20PHONG%20TRO`}
-                    alt="Mã VietQR thanh toán tiền phòng"
-                    style={{
-                      width: "180px",
-                      height: "180px",
-                      objectFit: "contain",
-                      borderRadius: "8px",
-                      border: "1px solid #E2E8F0",
-                    }}
-                  />
-                  <span
-                    style={{
-                      display: "block",
-                      fontSize: "11px",
-                      color: "var(--muted)",
-                      marginTop: "4px",
-                    }}
-                  >
-                    Quét bằng app ngân hàng bất kỳ
-                  </span>
-                </div>
-
-                <div
-                  style={{
-                    flex: 1,
-                    minWidth: "220px",
-                    fontSize: "13px",
-                    lineHeight: 1.6,
-                  }}
-                >
-                  <div style={{ marginBottom: "6px" }}>
-                    <span style={{ color: "var(--muted)" }}>
-                      Ngân hàng thụ hưởng:
-                    </span>{" "}
-                    <strong>NCB (Ngân hàng Quốc Dân)</strong>
-                  </div>
-                  <div style={{ marginBottom: "6px" }}>
-                    <span style={{ color: "var(--muted)" }}>Số tài khoản:</span>{" "}
-                    <strong
-                      style={{
-                        fontFamily: "monospace",
-                        fontSize: "14px",
-                        color: "#005BAA",
-                      }}
-                    >
-                      9704198526191432198
-                    </strong>
-                  </div>
-                  <div style={{ marginBottom: "6px" }}>
-                    <span style={{ color: "var(--muted)" }}>Chủ tài khoản:</span>{" "}
-                    <strong>NGUYEN VAN A</strong>
-                  </div>
-                  <div style={{ marginBottom: "6px" }}>
-                    <span style={{ color: "var(--muted)" }}>Số tiền nộp:</span>{" "}
-                    <strong style={{ color: "#DC2626", fontSize: "15px" }}>
-                      {money(invoice.remaining)}
-                    </strong>
-                  </div>
-                  <div>
-                    <span style={{ color: "var(--muted)" }}>
-                      Nội dung chuyển khoản chuẩn:
-                    </span>{" "}
-                    <code
-                      style={{
-                        background: "#EEF2FF",
-                        color: "#4F46E5",
-                        padding: "2px 6px",
-                        borderRadius: "4px",
-                        fontWeight: 700,
-                      }}
-                    >
-                      HD{invoice.id} P{invoice.room}
-                    </code>
-                  </div>
-                  <div
-                    style={{
-                      marginTop: "10px",
-                      padding: "8px 12px",
-                      background: "#F8FAFC",
-                      borderRadius: "6px",
-                      fontSize: "12px",
-                      color: "#64748B",
-                    }}
-                  >
-                    💡{" "}
-                    <em>
-                      Thẻ test thử nghiệm VNPAY Sandbox: Số thẻ{" "}
-                      <strong>9704198526191432198</strong> · Tên{" "}
-                      <strong>NGUYEN VAN A</strong> · Ngày phát hành{" "}
-                      <strong>07/15</strong> · Mật khẩu OTP{" "}
-                      <strong>123456</strong>
-                    </em>
-                  </div>
-                </div>
+                Môi trường thử nghiệm (VNPAY Sandbox) — dùng thẻ test: số thẻ{" "}
+                <strong>9704198526191432198</strong> · tên <strong>NGUYEN VAN A</strong> ·
+                ngày phát hành <strong>07/15</strong> · OTP <strong>123456</strong>. Không
+                chuyển tiền thật.
               </div>
             )}
           </div>

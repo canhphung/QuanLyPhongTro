@@ -29,10 +29,8 @@ public class SecurityConfig {
             csrf ->
                 csrf.csrfTokenRepository(tokens)
                     .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                    .ignoringRequestMatchers(
-                        "/api/app/owner/upload",
-                        "/api/app/upload",
-                        "/api/payment/vnpay/**"))
+                    // IPN/return của VNPAY là GET có chữ ký HMAC, không dùng cookie phiên.
+                    .ignoringRequestMatchers("/api/payment/vnpay/ipn", "/api/payment/vnpay/verify"))
         .securityContext(context -> context.securityContextRepository(contexts))
         .requestCache(cache -> cache.disable())
         .httpBasic(basic -> basic.disable())
@@ -40,8 +38,12 @@ public class SecurityConfig {
             auth ->
                 auth.dispatcherTypeMatchers(DispatcherType.ERROR)
                     .permitAll()
-                    .requestMatchers("/api/payment/vnpay/**")
+                    .requestMatchers(
+                        HttpMethod.GET, "/api/payment/vnpay/ipn", "/api/payment/vnpay/verify")
                     .permitAll()
+                    // Tạo link thanh toán: phải đăng nhập; service kiểm tra hóa đơn thuộc người gọi.
+                    .requestMatchers(HttpMethod.POST, "/api/payment/vnpay/create-payment")
+                    .authenticated()
                     .requestMatchers("/api/uploads/**", "/uploads/**")
                     .permitAll()
                     .requestMatchers(
@@ -54,9 +56,7 @@ public class SecurityConfig {
                     .requestMatchers(
                         HttpMethod.POST,
                         "/api/app/auth/login",
-                        "/api/app/auth/register",
-                        "/api/app/owner/upload",
-                        "/api/app/upload")
+                        "/api/app/auth/register")
                     .permitAll()
                     .requestMatchers("/api/app/owner/**")
                     .hasRole("CHU_TRO")

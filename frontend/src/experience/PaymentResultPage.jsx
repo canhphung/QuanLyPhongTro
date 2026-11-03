@@ -4,9 +4,13 @@ import { CheckCircle2, AlertTriangle, ArrowRight, Receipt, ShieldCheck } from "l
 import { money } from "./data";
 import { useAppData } from "./context";
 
+// Mỗi bộ tham số trả về chỉ gửi xác thực một lần, kể cả khi React StrictMode chạy effect hai lần
+// hoặc component được dựng lại; các lần sau dùng chung kết quả.
+const verifications = new Map();
+
 export default function PaymentResultPage() {
   const [params] = useSearchParams();
-  const { reload } = useAppData();
+  const { call, refresh } = useAppData();
   const hasVnpayCode = params.get("vnp_ResponseCode") != null;
 
   const [loading, setLoading] = useState(hasVnpayCode);
@@ -23,38 +27,34 @@ export default function PaymentResultPage() {
     if (!hasVnpayCode) return;
 
     let mounted = true;
-    async function verifyPayment() {
-      try {
-        const query = params.toString();
-        const res = await fetch(`/api/payment/vnpay/verify?${query}`);
-        const data = await res.json();
-        if (mounted) {
-          setResult(data);
-          if (data.success && reload) {
-            reload();
-          }
-        }
-      } catch (error) {
-        if (mounted) {
-          setResult({
-            success: false,
-            message:
-              error?.message ||
-              "Không thể kết nối đến máy chủ để xác thực kết quả thanh toán.",
-          });
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
+    const query = params.toString();
+    if (!verifications.has(query)) {
+      verifications.set(query, call(`/api/payment/vnpay/verify?${query}`));
     }
-
-    verifyPayment();
+    verifications
+      .get(query)
+      .then((data) => {
+        if (!mounted) return;
+        setResult(data);
+        if (data?.success && refresh) refresh();
+      })
+      .catch((error) => {
+        if (!mounted) return;
+        setResult({
+          success: false,
+          message:
+            error?.message ||
+            "Không thể kết nối đến máy chủ để xác thực kết quả thanh toán.",
+        });
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
     return () => {
       mounted = false;
     };
-  }, [hasVnpayCode, params, reload]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasVnpayCode, params]);
 
   if (loading) {
     return (

@@ -26,37 +26,59 @@ public class UploadService {
     return this.uploadDir;
   }
 
+  /** Tối đa số ảnh mỗi lần tải, khớp giới hạn 10 ảnh của một tin đăng. */
+  private static final int MAX_FILES = 10;
+
   public List<String> storeImages(MultipartFile[] files) {
     if (files == null || files.length == 0) {
       throw new BusinessException("Vui lòng chọn ít nhất một hình ảnh.");
     }
+    if (files.length > MAX_FILES) {
+      throw new BusinessException("Mỗi lần chỉ tải tối đa " + MAX_FILES + " ảnh.");
+    }
     List<String> urls = new ArrayList<>();
     for (MultipartFile file : files) {
       if (file == null || file.isEmpty()) continue;
-      String contentType = file.getContentType();
-      if (contentType == null || !contentType.toLowerCase().startsWith("image/")) {
-        throw new BusinessException("Chỉ chấp nhận tệp hình ảnh (jpg, png, webp, gif...)");
+      byte[] bytes;
+      try {
+        bytes = file.getBytes();
+      } catch (IOException e) {
+        throw new BusinessException("Không đọc được tệp ảnh.");
       }
-      String originalName = file.getOriginalFilename();
-      String ext = "";
-      if (originalName != null && originalName.contains(".")) {
-        ext = originalName.substring(originalName.lastIndexOf(".")).toLowerCase();
-      } else {
-        ext = ".jpg";
-      }
-      // Only allow safe image extensions
-      if (!Set.of(".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".svg").contains(ext)) {
-        throw new BusinessException("Định dạng ảnh không được hỗ trợ: " + ext);
+      // Xác định định dạng theo nội dung tệp, không tin tên tệp hay Content-Type do client gửi.
+      // Không nhận SVG vì SVG có thể chứa script.
+      String ext = detectImageExtension(bytes);
+      if (ext == null) {
+        throw new BusinessException("Chỉ chấp nhận ảnh JPG, PNG, WEBP hoặc GIF.");
       }
       String filename = UUID.randomUUID().toString() + ext;
       try {
-        Path target = this.uploadDir.resolve(filename);
-        Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+        Files.write(this.uploadDir.resolve(filename), bytes, StandardOpenOption.CREATE_NEW);
         urls.add("/api/uploads/" + filename);
       } catch (IOException e) {
         throw new BusinessException("Lỗi lưu ảnh: " + e.getMessage());
       }
     }
+    if (urls.isEmpty()) {
+      throw new BusinessException("Vui lòng chọn ít nhất một hình ảnh.");
+    }
     return urls;
+  }
+
+  /** Trả về phần mở rộng theo chữ ký đầu tệp, hoặc {@code null} nếu không phải ảnh được hỗ trợ. */
+  static String detectImageExtension(byte[] b) {
+    if (b.length >= 3 && (b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xD8 && (b[2] & 0xFF) == 0xFF)
+      return ".jpg";
+    if (b.length >= 8
+        && (b[0] & 0xFF) == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G'
+        && b[4] == 0x0D && b[5] == 0x0A && b[6] == 0x1A && b[7] == 0x0A)
+      return ".png";
+    if (b.length >= 6 && b[0] == 'G' && b[1] == 'I' && b[2] == 'F' && b[3] == '8'
+        && (b[4] == '7' || b[4] == '9') && b[5] == 'a')
+      return ".gif";
+    if (b.length >= 12 && b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F'
+        && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P')
+      return ".webp";
+    return null;
   }
 }

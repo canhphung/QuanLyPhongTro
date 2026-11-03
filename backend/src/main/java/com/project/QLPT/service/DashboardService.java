@@ -61,7 +61,10 @@ public class DashboardService {
             roomCount(ownerId, TrangThaiPhong.BAO_TRI), roomCount(ownerId, TrangThaiPhong.NGUNG_HOAT_DONG),
             nguoiThueRepository.count(OwnerSpecifications.nguoiThue(ownerId, null)),
             hopDongRepository.count(OwnerSpecifications.hopDong(ownerId, null, TrangThaiHopDong.DANG_HIEU_LUC)),
-            summary.invoiceCount(), summary.outstandingCount(), summary.outstanding(), inMonth, month.toString());
+            summary.invoiceCount(), summary.outstandingCount(),
+            roomCount(ownerId, TrangThaiPhong.DA_DAT),
+            hopDongRepository.count(OwnerSpecifications.hopDong(ownerId, null, TrangThaiHopDong.HET_HAN)),
+            summary.outstanding(), inMonth, month.toString());
     }
 
     private long roomCount(Integer ownerId, TrangThaiPhong state) {

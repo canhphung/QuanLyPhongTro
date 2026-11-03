@@ -428,7 +428,10 @@ export function OwnerDashboard() {
     .reduce((sum, invoice) => sum + Number(invoice.remaining), 0);
   const occupied = rooms.filter((x) => x.roomState === "DANG_THUE").length;
   const availableRooms = rooms.filter((x) => x.available).length;
-  const maintenanceRooms = rooms.filter((x) => x.roomState === "BAO_TRI").length;
+  const maintenanceRooms = rooms.filter((x) =>
+    ["BAO_TRI", "NGUNG_HOAT_DONG"].includes(x.roomState),
+  ).length;
+  const reservedRooms = rooms.filter((x) => x.roomState === "DA_DAT").length;
   const upcoming = requests.filter((x) =>
     ["Chờ xác nhận", "Đã xác nhận", "Đã xem", "Đã giữ chỗ"].includes(x.status),
   );
@@ -657,6 +660,15 @@ export function OwnerDashboard() {
               </span>
               <strong>{availableRooms} phòng</strong>
             </p>
+            {reservedRooms > 0 && (
+              <p style={{ gridColumn: "span 2" }}>
+                <span>
+                  <i style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#F59E0B", display: "inline-block" }} />
+                  Đã giữ chỗ / chờ vào ở
+                </span>
+                <strong>{reservedRooms} phòng</strong>
+              </p>
+            )}
             {maintenanceRooms > 0 && (
               <p style={{ gridColumn: "span 2" }}>
                 <span>

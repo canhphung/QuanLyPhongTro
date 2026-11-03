@@ -479,7 +479,7 @@ export function ApiProvider({ children }) {
       for (const file of files) {
         formData.append("files", file);
       }
-      const response = await fetch(`/api/app/owner/upload`, {
+      const response = await fetch(`${base}/api/app/owner/upload`, {
         method: "POST",
         credentials: "include",
         headers: {

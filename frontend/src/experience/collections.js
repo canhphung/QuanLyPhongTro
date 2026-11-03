@@ -158,7 +158,11 @@ export const schemas = {
       date("period", "Kỳ thanh toán (chọn ngày trong tháng)"),
       date("issued", "Ngày lập"),
       date("due", "Hạn thanh toán"),
-      number("rent", "Tiền phòng thực tế (₫)"),
+      {
+        ...number("rent", "Tiền phòng thực tế (₫)"),
+        optional: true,
+        hint: "Để trống để lấy giá thuê theo hợp đồng. Bắt buộc nhập với tháng đầu ở không đủ tháng.",
+      },
     ],
   },
   "thanh-toan": {

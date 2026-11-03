@@ -485,7 +485,8 @@ FROM hoa_don i JOIN hop_dong h ON h.id=i.hop_dong_id JOIN phong p ON p.id=h.phon
                     date(d, "period"),
                     date(d, "issued"),
                     date(d, "due"),
-                    decimal(d, "rent")));
+                    // Để trống: HoaDonService tự lấy giá thuê thỏa thuận của hợp đồng.
+                    decimalOptional(d, "rent")));
         if (id == null) invoices.create(req);
         else invoices.update(id, req);
       }

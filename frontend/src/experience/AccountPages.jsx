@@ -421,7 +421,7 @@ export function RequireAccount({ owner = false, admin = false, children }) {
     );
   }
 
-  if (admin && !user.roles?.includes("ADMIN") && !user.roles?.includes("CHU_TRO")) {
+  if (admin && !user.roles?.includes("ADMIN")) {
     return (
       <div className="client-container" style={{ padding: "80px 24px" }}>
         <EmptyState
