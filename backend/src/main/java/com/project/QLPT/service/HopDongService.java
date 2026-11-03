@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Isolation;
 import com.project.QLPT.dto.response.PageResponse;
 import com.project.QLPT.repository.specification.OwnerSpecifications;
 import com.project.QLPT.service.support.PageSupport;
+import com.project.QLPT.service.support.ViewingRequests;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
@@ -53,6 +54,7 @@ public class HopDongService {
   private final OwnedContractAccess access;
   private final PhongRepository phongRepository;
   private final ThanhVienHopDongRepository thanhVienHopDongRepository;
+  private final ViewingRequests viewingRequests;
 
   @PersistenceContext
   private EntityManager entityManager;
@@ -107,6 +109,8 @@ public class HopDongService {
 
     phong.setTrangThai(
         TrangThaiPhong.DANG_THUE);
+    // Phòng đã có người thuê: đóng các yêu cầu xem/thuê còn mở của khách khác.
+    viewingRequests.closeForRoom(phong.getId(), ViewingRequests.PHONG_KHONG_CON_TRONG);
 
     return toResponse(
         hopDongRepository.saveAndFlush(entity));

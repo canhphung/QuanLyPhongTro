@@ -13,6 +13,7 @@ import com.project.QLPT.exception.*;
 import com.project.QLPT.repository.*;
 import com.project.QLPT.repository.specification.OwnerSpecifications;
 import com.project.QLPT.service.support.PageSupport;
+import com.project.QLPT.service.support.ViewingRequests;
 import jakarta.persistence.*;
 import lombok.RequiredArgsConstructor;
 
@@ -24,6 +25,7 @@ public class PhongService {
     private final TinDangRepository tinDangRepository;
     private final NhaTroRepository nhaTroRepository;
     private final CurrentAccountService currentAccount;
+    private final ViewingRequests viewingRequests;
     @PersistenceContext private EntityManager entityManager;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -101,6 +103,8 @@ public class PhongService {
                 || hopDongRepository.existsByPhong_IdAndTrangThai(id, TrangThaiHopDong.DANG_HIEU_LUC))
             throw new BusinessException("Phòng đang thuê; cần xử lý hợp đồng trước");
         entity.setTrangThai(request.trangThai());
+        if (request.trangThai() != TrangThaiPhong.TRONG)
+            viewingRequests.closeForRoom(id, ViewingRequests.PHONG_KHONG_CON_TRONG);
         return toResponse(entity);
     }
 

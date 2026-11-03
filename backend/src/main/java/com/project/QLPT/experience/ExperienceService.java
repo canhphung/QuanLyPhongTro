@@ -3,6 +3,7 @@ package com.project.QLPT.experience;
 import static com.project.QLPT.experience.AccountService.*;
 
 import com.project.QLPT.dto.request.*;
+import com.project.QLPT.service.support.ViewingRequests;
 import com.project.QLPT.enums.*;
 import com.project.QLPT.exception.BusinessException;
 import com.project.QLPT.service.*;
@@ -280,12 +281,16 @@ FROM hoa_don i JOIN hop_dong h ON h.id=i.hop_dong_id JOIN phong p ON p.id=h.phon
         "requests",
         db.queryForList(
             "SELECT v.id,v.listing_id roomId,v.visit_date date,TIME_FORMAT(v.visit_time,'%H:%i')"
-                + " time,v.name,v.phone,v.request_type type,v.note,v.status,p.so_phong"
+                + " time,v.name,v.phone,v.request_type type,v.note,IF(v.status=? AND"
+                + " TIMESTAMP(v.visit_date,v.visit_time)<?,?,v.status) status,p.so_phong"
                 + " room,b.ten_nha_tro building,l.tieu_de title FROM portal_viewing_request v JOIN"
                 + " tin_dang l ON l.id=v.listing_id JOIN phong p ON p.id=l.phong_id JOIN nha_tro b"
                 + " ON b.id=p.nha_tro_id WHERE "
                 + (owner ? "b.chu_tro_id=?" : "v.account_id=?")
                 + " ORDER BY v.id DESC",
+            ViewingRequests.CHO_XAC_NHAN,
+            ViewingRequests.now(),
+            ViewingRequests.HET_HAN,
             scopeId));
     return normalizeDates(result);
   }
@@ -586,17 +591,20 @@ FROM hoa_don i JOIN hop_dong h ON h.id=i.hop_dong_id JOIN phong p ON p.id=h.phon
       throw new BusinessException("Tin không còn nhận lịch xem.");
     LocalDate day = date(d, "date");
     LocalTime time = LocalTime.parse(text(d, "time", 8));
-    if (LocalDateTime.of(day, time).isBefore(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"))))
+    if (LocalDateTime.of(day, time).isBefore(ViewingRequests.now()))
       throw new BusinessException("Vui lòng chọn thời gian trong tương lai.");
     String type = text(d, "type", 30);
     if (!Set.of("Xem phòng", "Đăng ký thuê").contains(type))
       throw new BusinessException("Loại yêu cầu không hợp lệ.");
     if (db.queryForObject(
             "SELECT COUNT(*) FROM portal_viewing_request WHERE account_id=? AND listing_id=? AND"
-                + " status IN ('Chờ xác nhận','Đã xác nhận')",
+                + " status IN (?,?) AND TIMESTAMP(visit_date,visit_time)>=?",
             Integer.class,
             account,
-            listing)
+            listing,
+            ViewingRequests.CHO_XAC_NHAN,
+            ViewingRequests.DA_XAC_NHAN,
+            ViewingRequests.now())
         > 0) throw new BusinessException("Bạn đã có yêu cầu đang chờ xử lý cho phòng này.");
     db.update(
         "INSERT INTO"
@@ -616,10 +624,12 @@ FROM hoa_don i JOIN hop_dong h ON h.id=i.hop_dong_id JOIN phong p ON p.id=h.phon
   public void requestStatus(long account, int id, Map<String, Object> d) {
     var rows =
         db.queryForList(
-            "SELECT v.account_id,c.tai_khoan_id owner_account_id,v.status FROM"
+            "SELECT v.account_id,c.tai_khoan_id owner_account_id,v.status,"
+                + "TIMESTAMP(v.visit_date,v.visit_time)<? expired,p.trang_thai room_state FROM"
                 + " portal_viewing_request v JOIN tin_dang l ON l.id=v.listing_id JOIN phong p ON"
                 + " p.id=l.phong_id JOIN nha_tro b ON b.id=p.nha_tro_id JOIN chu_tro c ON"
                 + " c.id=b.chu_tro_id WHERE v.id=? FOR UPDATE",
+            ViewingRequests.now(),
             id);
     if (rows.isEmpty())
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu.");
@@ -627,13 +637,20 @@ FROM hoa_don i JOIN hop_dong h ON h.id=i.hop_dong_id JOIN phong p ON p.id=h.phon
     String status = text(d, "status", 30);
     boolean owner = ((Number) row.get("owner_account_id")).longValue() == account;
     boolean tenant = ((Number) row.get("account_id")).longValue() == account;
-    if (!(owner && Set.of("Đã xác nhận", "Đã từ chối").contains(status))
-        && !(tenant && "Đã hủy".equals(status)))
+    if (!(owner
+            && Set.of(ViewingRequests.DA_XAC_NHAN, ViewingRequests.DA_TU_CHOI).contains(status))
+        && !(tenant && ViewingRequests.DA_HUY.equals(status)))
       throw new ResponseStatusException(HttpStatus.FORBIDDEN);
     String previous = row.get("status").toString();
-    if (Set.of("Đã hủy", "Đã từ chối").contains(previous)
-        || owner && !"Chờ xác nhận".equals(previous))
+    if (!ViewingRequests.OPEN.contains(previous)
+        || owner && !ViewingRequests.CHO_XAC_NHAN.equals(previous))
       throw new BusinessException("Yêu cầu đã được xử lý. Vui lòng tải lại.");
+    Object expired = row.get("expired");
+    if (expired instanceof Boolean b ? b : ((Number) expired).intValue() != 0)
+      throw new BusinessException("Lịch hẹn đã qua, không thể cập nhật yêu cầu.");
+    if (ViewingRequests.DA_XAC_NHAN.equals(status)
+        && !"TRONG".equals(Objects.toString(row.get("room_state"))))
+      throw new BusinessException("Phòng không còn trống, không thể xác nhận lịch hẹn.");
     db.update("UPDATE portal_viewing_request SET status=? WHERE id=?", status, id);
   }
 

@@ -23,6 +23,7 @@ public class TinDangService {
  private final LichSuTinDangRepository history;
  private final PhongRepository rooms;
  private final CurrentAccountService current;
+ private final ViewingRequests viewingRequests;
  @PersistenceContext private EntityManager entityManager;
  private static final ZoneId ZONE=ZoneId.of("Asia/Ho_Chi_Minh");
  private LocalDateTime now(){return LocalDateTime.now(ZONE);}
@@ -77,6 +78,7 @@ public class TinDangService {
   var tin=ownerLock(id);expected(tin,request.phienBan());requireState(tin,TrangThaiTinDang.DA_DUYET);
   var version=tin.getPhienBan();tin.setTrangThai(TrangThaiTinDang.DA_AN);
   tin.setLyDo("Chủ trọ ẩn tin");
+  viewingRequests.closeForListing(tin.getId(),ViewingRequests.TIN_DA_AN);
   record(tin,version,HanhDongTinDang.AN,tin.getLyDo(),current.getTaiKhoan());return response(tin);
  }
  @Transactional(isolation=Isolation.READ_COMMITTED)
@@ -115,6 +117,7 @@ public class TinDangService {
   var actor=admin();var tin=adminLock(id);expected(tin,request.phienBan());requireState(tin,TrangThaiTinDang.DA_DUYET);
   var reason=reason(request.lyDo());var version=tin.getPhienBan();
   tin.setTrangThai(TrangThaiTinDang.DA_AN);tin.setLyDo(reason);
+  viewingRequests.closeForListing(tin.getId(),ViewingRequests.TIN_DA_AN);
   record(tin,version,HanhDongTinDang.AN,reason,actor);return response(tin);
  }
 
@@ -159,7 +162,7 @@ public class TinDangService {
  }
  private TaiKhoan admin() {
   var actor=current.getTaiKhoan();
-  if(!actor.getVaiTros().contains(VaiTroTaiKhoan.ADMIN) && !actor.getVaiTros().contains(VaiTroTaiKhoan.CHU_TRO)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cần quyền quản trị viên");
+  if(!actor.getVaiTros().contains(VaiTroTaiKhoan.ADMIN)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cần quyền quản trị viên");
   return actor;
  }
  private TinDang entity(Integer id){return repository.findById(id).orElseThrow(()->new ResourceNotFoundException("Không tìm thấy tin đăng"));}

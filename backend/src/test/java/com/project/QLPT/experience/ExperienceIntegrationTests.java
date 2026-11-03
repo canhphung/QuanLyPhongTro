@@ -20,6 +20,7 @@ import tools.jackson.databind.*;
 class ExperienceIntegrationTests {
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
+  @Autowired org.springframework.jdbc.core.JdbcTemplate db;
 
   class Client {
     MockHttpSession session;
@@ -136,32 +137,30 @@ class ExperienceIntegrationTests {
             "Integration listing",
             "description",
             "Integration room description",
+            "phone",
+            "0900000001",
+            "images",
+            "https://example.com/integration-room.jpg",
             "published",
-            false));
+            true));
+    int listing =
+        db.queryForObject("SELECT id FROM tin_dang WHERE phong_id=?", Integer.class, room);
+    // Gửi duyệt chưa đủ để hiển thị công khai.
     assertThat(anonymous.state().get("publicRooms").toString())
         .doesNotContain("Integration listing");
-    owner.request(
-        "PUT",
-        "/owner/listings/" + room,
-        Map.of(
-            "title",
-            "Integration listing",
-            "description",
-            "Integration room description",
-            "published",
-            true),
-        200);
+    // Kiểm duyệt là việc của quản trị viên; test luồng thuê nên duyệt trực tiếp trong DB.
+    db.update("UPDATE tin_dang SET trang_thai='DA_DUYET' WHERE id=?", listing);
     assertThat(anonymous.state().get("publicRooms").toString())
         .contains("Integration listing")
         .doesNotContain("cccd", "password_hash");
-    tenant.request("PUT", "/favorites/" + room, null, 200);
-    assertThat(tenant.state().get("saved").toString()).contains(String.valueOf(room));
+    tenant.request("PUT", "/favorites/" + listing, null, 200);
+    assertThat(tenant.state().get("saved").toString()).contains(String.valueOf(listing));
     tenant.request(
         "POST",
         "/requests",
         Map.of(
             "roomId",
-            room,
+            listing,
             "name",
             "Integration tenant",
             "phone",
@@ -179,6 +178,40 @@ class ExperienceIntegrationTests {
     owner.request("PATCH", "/requests/" + request, Map.of("status", "Đã xác nhận"), 200);
     assertThat(tenant.state().get("requests").get(0).get("status").asText())
         .isEqualTo("Đã xác nhận");
+    Map<String, Object> viewing =
+        Map.of(
+            "roomId",
+            listing,
+            "name",
+            "Integration tenant",
+            "phone",
+            "0900000000",
+            "date",
+            java.time.LocalDate.now().plusDays(3).toString(),
+            "time",
+            "09:00",
+            "type",
+            "Xem phòng");
+    // Lịch đã xác nhận còn hiệu lực: không đặt trùng.
+    tenant.request("POST", "/requests", viewing, 400);
+    // Lịch đã qua không còn chặn khách đặt lịch mới.
+    db.update(
+        "UPDATE portal_viewing_request SET visit_date=? WHERE id=?",
+        java.time.LocalDate.now().minusDays(1),
+        request);
+    tenant.request("POST", "/requests", viewing, 200);
+    int retry = tenant.first("requests");
+    assertThat(retry).isNotEqualTo(request);
+    stranger.request("POST", "/requests", viewing, 200);
+    int strangerRequest = stranger.first("requests");
+    // Yêu cầu chờ xác nhận đã qua giờ hẹn hiển thị "Hết hạn" và không xác nhận được nữa.
+    db.update(
+        "UPDATE portal_viewing_request SET visit_date=? WHERE id=?",
+        java.time.LocalDate.now().minusDays(1),
+        retry);
+    assertThat(tenant.state().get("requests").get(0).get("status").asText())
+        .isEqualTo("Hết hạn");
+    owner.request("PATCH", "/requests/" + retry, Map.of("status", "Đã xác nhận"), 400);
     owner.create(
         "tenants",
         Map.of(
@@ -229,6 +262,19 @@ class ExperienceIntegrationTests {
             "deposit",
             3000000));
     int contract = owner.first("contracts");
+    // Phòng đã cho thuê: mọi yêu cầu mở của phòng được đóng, chủ trọ không xác nhận được nữa.
+    assertThat(stranger.state().get("requests").get(0).get("status").asText())
+        .isEqualTo("Phòng không còn trống");
+    assertThat(
+            db.queryForObject(
+                "SELECT COUNT(*) FROM portal_viewing_request v JOIN tin_dang l ON"
+                    + " l.id=v.listing_id WHERE l.phong_id=? AND v.status IN ('Chờ xác nhận','Đã"
+                    + " xác nhận')",
+                Integer.class,
+                room))
+        .isZero();
+    owner.request(
+        "PATCH", "/requests/" + strangerRequest, Map.of("status", "Đã xác nhận"), 400);
     assertThat(anonymous.state().get("publicRooms").toString())
         .doesNotContain("Integration listing");
     assertThat(tenant.state().get("contracts").isEmpty()).isTrue();
@@ -320,6 +366,14 @@ class ExperienceIntegrationTests {
                 .getResponse()
                 .getStatus())
         .isEqualTo(401);
+    // Chủ trọ không được tự kiểm duyệt tin đăng.
+    assertThat(
+            mvc.perform(
+                    MockMvcRequestBuilders.get("/api/admin/tin-dang").session(owner.session))
+                .andReturn()
+                .getResponse()
+                .getStatus())
+        .isEqualTo(403);
     assertThat(
             mvc.perform(
                     MockMvcRequestBuilders.post("/api/app/owner/buildings")

@@ -65,7 +65,7 @@ public class SecurityConfig {
                         HttpMethod.GET, "/api/cong-khai/tin-dang", "/api/cong-khai/tin-dang/**")
                     .permitAll()
                     .requestMatchers("/api/admin/tin-dang", "/api/admin/tin-dang/**")
-                    .hasAnyRole("ADMIN", "CHU_TRO")
+                    .hasRole("ADMIN")
                     .requestMatchers("/api/tin-dang", "/api/tin-dang/**")
                     .hasRole("CHU_TRO")
                     .requestMatchers("/api/nha-tro", "/api/nha-tro/**")

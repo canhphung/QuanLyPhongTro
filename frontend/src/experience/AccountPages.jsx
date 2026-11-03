@@ -1175,7 +1175,7 @@ export function MyRequestsPage() {
                     Xem phòng <ArrowUpRight size={15} />
                   </Link>
                 )}
-                {!["Đã hủy", "Đã từ chối"].includes(req.status) && (
+                {["Chờ xác nhận", "Đã xác nhận"].includes(req.status) && (
                   <button
                     className="text-button"
                     style={{ color: "#EF4444" }}
@@ -1324,13 +1324,13 @@ export function MyNotificationsPage() {
       desc:
         req.status === "Chờ xác nhận"
           ? `Yêu cầu "${req.type || "Xem phòng"}" đang chờ chủ nhà phản hồi.`
-          : req.status === "Đã duyệt"
+          : req.status === "Đã xác nhận"
             ? `Chủ nhà đã xác nhận yêu cầu "${req.type || "Xem phòng"}" vào ngày ${req.date || ""}.`
             : `Yêu cầu "${req.type || "Xem phòng"}" đã được cập nhật: ${req.status}.`,
       date: req.date || TODAY_INPUT,
       actionUrl: "/tai-khoan/yeu-cau",
       actionLabel: "Xem chi tiết",
-      severity: req.status === "Đã duyệt" ? "success" : req.status === "Chờ xác nhận" ? "info" : "muted",
+      severity: req.status === "Đã xác nhận" ? "success" : req.status === "Chờ xác nhận" ? "info" : "muted",
     });
   });
 
