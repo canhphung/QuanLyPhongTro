@@ -1,0 +1,92 @@
+package com.project.QLPT.repository;
+
+import java.time.LocalDate;
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.project.QLPT.entity.HoaDon;
+import com.project.QLPT.enums.TrangThaiHoaDon;
+
+/**
+ * Repository truy cập dữ liệu cho {@link HoaDon}.
+ *
+ * <p>
+ * Bổ sung truy vấn kiểm tra hóa đơn theo hợp đồng và kỳ thanh toán
+ * để đảm bảo ràng buộc duy nhất ở tầng nghiệp vụ.
+ * </p>
+ */
+public interface HoaDonRepository extends JpaRepository<HoaDon, Integer>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<HoaDon> {
+    interface RentRow {
+        Integer getInvoiceId();
+        java.math.BigDecimal getRent();
+    }
+
+    @org.springframework.data.jpa.repository.Query("""
+        select h.id as invoiceId, h.tienPhong as rent from HoaDon h
+        where h.hopDong.phong.nhaTro.chuTro.id = :ownerId
+        """)
+    List<RentRow> rentsForOwner(@org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
+
+    /**
+     * Kiểm tra xem hợp đồng đã có hóa đơn cho kỳ thanh toán này chưa.
+     *
+     * @param hopDongId   mã hợp đồng cần kiểm tra
+     * @param kyThanhToan kỳ thanh toán cần kiểm tra
+     * @return {@code true} nếu đã tồn tại hóa đơn
+     */
+    boolean existsByHopDong_IdAndKyThanhToan(
+            Integer hopDongId,
+            LocalDate kyThanhToan);
+
+    boolean existsByHopDong_IdAndKyThanhToanBetween(
+        Integer hopDongId,
+        LocalDate tuNgay,
+        LocalDate denNgay
+    );
+
+    boolean existsByHopDong_IdAndKyThanhToanBetweenAndIdNot(
+        Integer hopDongId,
+        LocalDate tuNgay,
+        LocalDate denNgay,
+        Integer id
+    );
+
+    /**
+     * Lấy danh sách hóa đơn của một hợp đồng theo kỳ giảm dần.
+     *
+     * @param hopDongId mã hợp đồng cần lấy hóa đơn
+     * @return danh sách hóa đơn của hợp đồng
+     */
+    List<HoaDon> findByHopDong_IdOrderByKyThanhToanDesc(
+            Integer hopDongId);
+
+    /**
+     * Lấy danh sách hóa đơn theo trạng thái thanh toán.
+     *
+     * @param trangThai trạng thái cần lọc
+     * @return danh sách hóa đơn có trạng thái tương ứng
+     */
+    List<HoaDon> findByTrangThai(TrangThaiHoaDon trangThai);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"hopDong", "hopDong.phong", "hopDong.phong.nhaTro"})
+    java.util.Optional<HoaDon> findByIdAndHopDong_Phong_NhaTro_ChuTro_Id(Integer id, Integer ownerId);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select h from HoaDon h where h.id = :id and h.hopDong.phong.nhaTro.chuTro.id = :ownerId")
+    java.util.Optional<HoaDon> findOwnedForUpdate(
+        @org.springframework.data.repository.query.Param("id") Integer id,
+        @org.springframework.data.repository.query.Param("ownerId") Integer ownerId);
+
+    @Override
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"hopDong", "hopDong.phong", "hopDong.phong.nhaTro"})
+    org.springframework.data.domain.Page<HoaDon> findAll(
+        org.springframework.data.jpa.domain.Specification<HoaDon> specification,
+        org.springframework.data.domain.Pageable pageable);
+
+    @Override
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"hopDong", "hopDong.phong", "hopDong.phong.nhaTro"})
+    java.util.List<HoaDon> findAll(
+        org.springframework.data.jpa.domain.Specification<HoaDon> specification,
+        org.springframework.data.domain.Sort sort);
+}
