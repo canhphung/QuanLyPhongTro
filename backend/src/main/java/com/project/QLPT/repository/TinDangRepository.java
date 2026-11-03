@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 public interface TinDangRepository extends JpaRepository<TinDang,Integer>,JpaSpecificationExecutor<TinDang> {
  boolean existsByPhong_Id(Integer id);
+ Optional<TinDang> findByPhong_Id(Integer id);
  @EntityGraph(attributePaths={"phong","phong.nhaTro"})
  Optional<TinDang> findByIdAndPhong_NhaTro_ChuTro_Id(Integer id,Integer ownerId);
  @Lock(LockModeType.PESSIMISTIC_WRITE)

@@ -44,7 +44,7 @@ export const schemas = {
   phong: {
     key: "rooms",
     title: "Phòng",
-    subtitle: "Trạng thái đang thuê được cập nhật qua hợp đồng.",
+    subtitle: "Trạng thái đã giữ chỗ/đang thuê được cập nhật qua giữ chỗ và hợp đồng.",
     singular: "phòng",
     columns: [
       ["number", "Phòng"],
@@ -61,6 +61,7 @@ export const schemas = {
       select("type", "Loại phòng", ["Phòng trọ", "Studio", "Căn hộ mini"]),
       select("roomState", "Trạng thái", [
         ["TRONG", "Còn trống"],
+        ["DA_DAT", "Đã giữ chỗ (qua giữ chỗ/hợp đồng)"],
         ["BAO_TRI", "Bảo trì"],
         ["NGUNG_HOAT_DONG", "Ngừng hoạt động"],
         ["DANG_THUE", "Đang thuê (qua hợp đồng)"],
@@ -109,7 +110,8 @@ export const schemas = {
   "hop-dong": {
     key: "contracts",
     title: "Hợp đồng",
-    subtitle: "Thời hạn thuê, tiền cọc và thành viên ở cùng.",
+    subtitle:
+      "Thời hạn thuê, tiền cọc và thành viên ở cùng. Hợp đồng hết hạn: sửa ngày kết thúc để gia hạn.",
     singular: "hợp đồng",
     columns: [
       ["id", "Mã"],
@@ -124,6 +126,11 @@ export const schemas = {
       {
         ...select("tenantId", "Đại diện ban đầu", "tenants"),
         createOnly: true,
+      },
+      {
+        ...select("requestId", "Từ yêu cầu giữ chỗ", "heldRequests"),
+        createOnly: true,
+        optional: true,
       },
       date("start", "Ngày bắt đầu"),
       date("end", "Ngày kết thúc"),
@@ -181,7 +188,7 @@ export const schemas = {
     key: "listings",
     title: "Tin đăng",
     subtitle:
-      "Tải ảnh từ thư viện máy lên hoặc nhập link ảnh. Gửi quản trị viên duyệt để công khai hiển thị trên trang chủ.",
+      "Giá và diện tích lấy theo phòng. Tải ảnh từ thư viện máy lên hoặc nhập link ảnh. Gửi quản trị viên duyệt để công khai hiển thị trên trang chủ.",
     singular: "tin đăng",
     columns: [
       ["title", "Tiêu đề"],
@@ -193,7 +200,7 @@ export const schemas = {
     fields: [
       { ...select("roomId", "Phòng", "rooms"), createOnly: true },
       text("title", "Tiêu đề"),
-      number("price", "Giá đăng (₫/tháng)", 1),
+      
       { ...text("phone", "Số điện thoại liên hệ"), type: "tel" },
       { key: "description", label: "Mô tả phòng", type: "textarea" },
       {
@@ -216,6 +223,13 @@ export const schemas = {
 export function optionsFor(field, data) {
   if (Array.isArray(field.options))
     return field.options.map((x) => (Array.isArray(x) ? x : [x, x]));
+  if (field.options === "heldRequests")
+    return (data.requests || [])
+      .filter((x) => x.status === "Đã giữ chỗ")
+      .map((x) => [
+        x.id,
+        `#${x.id} · Phòng ${x.room} · ${x.name} · giữ đến ${x.holdUntil || ""}`,
+      ]);
   return (data[field.options] || []).map((x) => [
     x.id,
     field.options === "rooms"

@@ -21,6 +21,7 @@ class ExperienceIntegrationTests {
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
   @Autowired org.springframework.jdbc.core.JdbcTemplate db;
+  @Autowired com.project.QLPT.service.RentalLifecycleJob lifecycle;
 
   class Client {
     MockHttpSession session;
@@ -384,6 +385,215 @@ class ExperienceIntegrationTests {
                 .getResponse()
                 .getStatus())
         .isEqualTo(403);
+  }
+
+  static JsonNode byId(JsonNode rows, int id) {
+    for (var row : rows) if (row.get("id").asInt() == id) return row;
+    throw new AssertionError("Không tìm thấy id " + id + " trong " + rows);
+  }
+
+  static String day(int offset) {
+    return java.time.LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"))
+        .plusDays(offset)
+        .toString();
+  }
+
+  @Test
+  void viewingHoldContractLifecycle() throws Exception {
+    Client owner = new Client(), a = new Client(), b = new Client(), anonymous = new Client();
+    owner.register("owner");
+    a.register("tenant");
+    b.register("tenant");
+    owner.create(
+        "buildings",
+        Map.of("name", "Lifecycle building", "address", "Lifecycle address", "city", "Hà Nội",
+            "district", "Lifecycle district", "manager", "Lifecycle manager"));
+    owner.create(
+        "rooms",
+        Map.of("number", "L-" + UUID.randomUUID().toString().substring(0, 8), "area", 20,
+            "price", 3000000, "buildingId", owner.first("buildings"), "type", "Studio"));
+    int room = owner.first("rooms");
+    owner.create(
+        "listings",
+        Map.of("roomId", room, "title", "Lifecycle listing", "description", "Lifecycle room",
+            "phone", "0900000002", "images", "https://example.com/lifecycle.jpg",
+            "published", false));
+    int listing =
+        db.queryForObject("SELECT id FROM tin_dang WHERE phong_id=?", Integer.class, room);
+    // Giá tin phải là giá phòng.
+    owner.request(
+        "PUT",
+        "/owner/listings/" + listing,
+        Map.of("title", "Lifecycle listing", "description", "Lifecycle room", "phone",
+            "0900000002", "images", "https://example.com/lifecycle.jpg", "price", 2500000,
+            "version", 0, "published", false),
+        400);
+    db.update("UPDATE tin_dang SET trang_thai='DA_DUYET' WHERE id=?", listing);
+    assertThat(anonymous.state().get("publicRooms").toString()).contains("Lifecycle listing");
+
+    // Quy tắc đặt lịch: khung giờ và số ngày tối đa.
+    var viewing = new HashMap<String, Object>(
+        Map.of("roomId", listing, "name", "Khách A", "phone", "0900000003", "date", day(2),
+            "time", "22:00", "type", "Xem phòng"));
+    a.request("POST", "/requests", viewing, 400);
+    viewing.put("time", "10:00");
+    viewing.put("date", day(61));
+    a.request("POST", "/requests", viewing, 400);
+    viewing.put("date", day(2));
+    a.request("POST", "/requests", viewing, 200);
+    int reqA = a.first("requests");
+    viewing.put("name", "Khách B");
+    viewing.put("time", "10:15");
+    b.request("POST", "/requests", viewing, 200);
+    int reqB = b.first("requests");
+
+    // Không xác nhận hai lịch trùng giờ.
+    owner.request("PATCH", "/requests/" + reqA, Map.of("status", "Đã xác nhận"), 200);
+    owner.request("PATCH", "/requests/" + reqB, Map.of("status", "Đã xác nhận"), 400);
+    b.request("PATCH", "/requests/" + reqB, Map.of("status", "Đã hủy"), 200);
+    // Chỉ ghi nhận "Đã xem" sau giờ hẹn.
+    owner.request("PATCH", "/requests/" + reqA, Map.of("status", "Đã xem"), 400);
+    db.update("UPDATE portal_viewing_request SET visit_date=? WHERE id=?", day(-1), reqA);
+    owner.request("PATCH", "/requests/" + reqA, Map.of("status", "Đã xem"), 200);
+
+    // Đăng ký thuê → giữ chỗ.
+    viewing.put("type", "Đăng ký thuê");
+    viewing.put("date", day(1));
+    b.request("POST", "/requests", viewing, 200);
+    int holdB = b.first("requests");
+    owner.request(
+        "PATCH", "/requests/" + holdB,
+        Map.of("status", "Đã giữ chỗ", "holdDeposit", 1000000, "holdUntil", day(40)), 400);
+    owner.request(
+        "PATCH", "/requests/" + holdB,
+        Map.of("status", "Đã giữ chỗ", "holdDeposit", 1000000, "holdUntil", day(5)), 200);
+    assertThat(byId(owner.state().get("rooms"), room).get("roomState").asText())
+        .isEqualTo("DA_DAT");
+    assertThat(anonymous.state().get("publicRooms").toString())
+        .doesNotContain("Lifecycle listing");
+    assertThat(db.queryForObject("SELECT trang_thai FROM tin_dang WHERE id=?", String.class,
+        listing)).isEqualTo("DA_AN");
+
+    owner.create(
+        "tenants", Map.of("name", "Khách B", "cccd", UUID.randomUUID().toString().substring(0, 18)));
+    int person = owner.first("tenants");
+    var contract = new HashMap<String, Object>(
+        Map.of("roomId", room, "start", day(10), "end", day(375), "price", 3000000,
+            "deposit", 3000000));
+    // Hợp đồng phải có đại diện; phòng đang giữ chỗ chỉ lập hợp đồng từ yêu cầu giữ chỗ.
+    owner.request("POST", "/owner/contracts", contract, 400);
+    contract.put("tenantId", person);
+    owner.request("POST", "/owner/contracts", contract, 400);
+    contract.put("requestId", holdB);
+    owner.request("POST", "/owner/contracts", contract, 200);
+    int c1 = owner.first("contracts");
+    assertThat(byId(b.state().get("requests"), holdB).get("status").asText())
+        .isEqualTo("Đã lập hợp đồng");
+    // Chưa tới ngày vào ở: phòng vẫn là "đã đặt".
+    assertThat(byId(owner.state().get("rooms"), room).get("roomState").asText())
+        .isEqualTo("DA_DAT");
+
+    // Hủy hợp đồng chưa phát sinh hóa đơn: bắt buộc có lý do.
+    owner.request("POST", "/owner/contracts/" + c1 + "/cancel", Map.of(), 400);
+    owner.request(
+        "POST", "/owner/contracts/" + c1 + "/cancel", Map.of("reason", "Khách đổi ý"), 200);
+    assertThat(byId(owner.state().get("rooms"), room).get("roomState").asText())
+        .isEqualTo("TRONG");
+
+    // Tin đã ẩn: đổi giá phòng được và tin nhận giá mới.
+    owner.request(
+        "PUT", "/owner/rooms/" + room,
+        Map.of("number", byId(owner.state().get("rooms"), room).get("number").asText(),
+            "area", 20, "price", 3200000, "buildingId", owner.first("buildings"),
+            "type", "Studio", "roomState", "TRONG"),
+        200);
+    assertThat(db.queryForObject("SELECT gia_thue FROM tin_dang WHERE id=?",
+        java.math.BigDecimal.class, listing)).isEqualByComparingTo("3200000");
+
+    // Kết thúc hợp đồng: tiền cọc trước hết bù công nợ hóa đơn.
+    contract.remove("requestId");
+    contract.put("start", "2026-01-01");
+    owner.request("POST", "/owner/contracts", contract, 200);
+    int c2 = owner.first("contracts");
+    owner.request(
+        "POST", "/owner/contracts/" + c2 + "/cancel", Map.of("reason", "Thử"), 200);
+    owner.request(
+        "POST", "/owner/contracts", contract, 200);
+    int c3 = owner.first("contracts");
+    owner.create(
+        "invoices",
+        Map.of("contractId", c3, "period", day(0), "issued", day(0), "due", day(10),
+            "rent", 3000000));
+    owner.request(
+        "POST", "/owner/contracts/" + c3 + "/cancel", Map.of("reason", "Thử"), 400);
+    owner.request(
+        "POST", "/owner/contracts/" + c3 + "/end",
+        Map.of("actualEnd", day(0), "reason", "Trả phòng", "depositRefund", 3000000), 400);
+    owner.request(
+        "POST", "/owner/contracts/" + c3 + "/end",
+        Map.of("actualEnd", day(0), "reason", "Trả phòng", "depositRefund", 0,
+            "settlementNote", "Cọc bù tiền phòng tháng cuối"),
+        200);
+    var ended = byId(owner.state().get("contracts"), c3);
+    assertThat(ended.get("depositRefund").asLong()).isZero();
+    assertThat(ended.get("settlementNote").asText()).isEqualTo("Cọc bù tiền phòng tháng cuối");
+
+    // Hết hạn tự động và gia hạn.
+    contract.put("end", day(1));
+    owner.request("POST", "/owner/contracts", contract, 200);
+    int c4 = owner.first("contracts");
+    db.update("UPDATE hop_dong SET ngay_ket_thuc=? WHERE id=?", day(-1), c4);
+    lifecycle.run();
+    assertThat(byId(owner.state().get("contracts"), c4).get("state").asText())
+        .isEqualTo("HET_HAN");
+    assertThat(byId(owner.state().get("rooms"), room).get("roomState").asText())
+        .isEqualTo("DANG_THUE");
+    owner.request(
+        "PUT", "/owner/contracts/" + c4,
+        Map.of("roomId", room, "start", "2026-01-01", "end", day(90), "price", 3000000,
+            "deposit", 3000000),
+        200);
+    assertThat(byId(owner.state().get("contracts"), c4).get("state").asText())
+        .isEqualTo("DANG_HIEU_LUC");
+  }
+
+  @Test
+  void expiredHoldReleasesRoom() throws Exception {
+    Client owner = new Client(), a = new Client();
+    owner.register("owner");
+    a.register("tenant");
+    owner.create(
+        "buildings",
+        Map.of("name", "Hold building", "address", "Hold address", "city", "Hà Nội",
+            "district", "Hold district", "manager", "Hold manager"));
+    owner.create(
+        "rooms",
+        Map.of("number", "H-" + UUID.randomUUID().toString().substring(0, 8), "area", 20,
+            "price", 3000000, "buildingId", owner.first("buildings"), "type", "Studio"));
+    int room = owner.first("rooms");
+    owner.create(
+        "listings",
+        Map.of("roomId", room, "title", "Hold listing", "description", "Hold room",
+            "phone", "0900000004", "images", "https://example.com/hold.jpg",
+            "published", false));
+    int listing =
+        db.queryForObject("SELECT id FROM tin_dang WHERE phong_id=?", Integer.class, room);
+    db.update("UPDATE tin_dang SET trang_thai='DA_DUYET' WHERE id=?", listing);
+    a.request(
+        "POST", "/requests",
+        Map.of("roomId", listing, "name", "Khách", "phone", "0900000005", "date", day(1),
+            "time", "09:00", "type", "Đăng ký thuê"),
+        200);
+    int hold = a.first("requests");
+    owner.request(
+        "PATCH", "/requests/" + hold,
+        Map.of("status", "Đã giữ chỗ", "holdDeposit", 500000, "holdUntil", day(0)), 200);
+    db.update("UPDATE portal_viewing_request SET hold_until=? WHERE id=?", day(-1), hold);
+    lifecycle.run();
+    assertThat(byId(a.state().get("requests"), hold).get("status").asText())
+        .isEqualTo("Hết hạn giữ chỗ");
+    assertThat(byId(owner.state().get("rooms"), room).get("roomState").asText())
+        .isEqualTo("TRONG");
   }
 
   @Test

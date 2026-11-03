@@ -13,7 +13,7 @@ import com.project.QLPT.exception.*;
 import com.project.QLPT.repository.*;
 import com.project.QLPT.repository.specification.OwnerSpecifications;
 import com.project.QLPT.service.support.PageSupport;
-import com.project.QLPT.service.support.ViewingRequests;
+
 import jakarta.persistence.*;
 import lombok.RequiredArgsConstructor;
 
@@ -25,7 +25,7 @@ public class PhongService {
     private final TinDangRepository tinDangRepository;
     private final NhaTroRepository nhaTroRepository;
     private final CurrentAccountService currentAccount;
-    private final ViewingRequests viewingRequests;
+    private final TinDangService tinDangService;
     @PersistenceContext private EntityManager entityManager;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -78,6 +78,8 @@ public class PhongService {
         entity.setDienTich(request.dienTich());
         entity.setGiaThue(request.giaThue());
         phongRepository.flush();
+        // Tin đăng là bản sao giá/diện tích của phòng.
+        tinDangService.roomChanged(entity);
         return toResponse(entity);
     }
 
@@ -97,14 +99,17 @@ public class PhongService {
         var entity = ownedForUpdate(id);
         if (request.trangThai() == null)
             throw new BusinessException("Trạng thái phòng không được để trống");
-        if (request.trangThai() == TrangThaiPhong.DANG_THUE)
-            throw new BusinessException("Trạng thái đang thuê được quản lý qua hợp đồng");
+        if (request.trangThai() == TrangThaiPhong.DANG_THUE || request.trangThai() == TrangThaiPhong.DA_DAT)
+            throw new BusinessException("Trạng thái đang thuê/đã đặt được quản lý qua giữ chỗ và hợp đồng");
         if (entity.getTrangThai() == TrangThaiPhong.DANG_THUE
-                || hopDongRepository.existsByPhong_IdAndTrangThai(id, TrangThaiHopDong.DANG_HIEU_LUC))
+                || hopDongRepository.existsByPhong_IdAndTrangThai(id, TrangThaiHopDong.DANG_HIEU_LUC)
+                || hopDongRepository.existsByPhong_IdAndTrangThai(id, TrangThaiHopDong.HET_HAN))
             throw new BusinessException("Phòng đang thuê; cần xử lý hợp đồng trước");
+        if (entity.getTrangThai() == TrangThaiPhong.DA_DAT)
+            throw new BusinessException("Phòng đang được giữ chỗ/đã ký hợp đồng; hủy giữ chỗ hoặc hợp đồng trước");
         entity.setTrangThai(request.trangThai());
         if (request.trangThai() != TrangThaiPhong.TRONG)
-            viewingRequests.closeForRoom(id, ViewingRequests.PHONG_KHONG_CON_TRONG);
+            tinDangService.roomUnavailable(id);
         return toResponse(entity);
     }
 

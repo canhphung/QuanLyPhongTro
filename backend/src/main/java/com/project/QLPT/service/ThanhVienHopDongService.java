@@ -145,8 +145,8 @@ public class ThanhVienHopDongService {
     }
 
     private void validateDangHieuLuc(HopDong hopDong) {
-        if (hopDong.getTrangThai() != TrangThaiHopDong.DANG_HIEU_LUC) {
-            throw new BusinessException("Chỉ chỉnh sửa thành viên của hợp đồng đang hiệu lực");
+        if (!HopDongService.isOpen(hopDong.getTrangThai())) {
+            throw new BusinessException("Chỉ chỉnh sửa thành viên của hợp đồng đang hiệu lực hoặc đã hết hạn chưa trả phòng");
         }
     }
 

@@ -243,7 +243,8 @@ function RecordForm({ schema, record, onClose }) {
                       required={!f.optional}
                       disabled={
                         f.key === "roomState" &&
-                        (!record || record.roomState === "DANG_THUE")
+                        (!record ||
+                          ["DANG_THUE", "DA_DAT"].includes(record.roomState))
                       }
                     >
                       <option value="">
@@ -253,7 +254,10 @@ function RecordForm({ schema, record, onClose }) {
                         <option
                           key={id}
                           value={id}
-                          disabled={f.key === "roomState" && id === "DANG_THUE"}
+                          disabled={
+                            f.key === "roomState" &&
+                            ["DANG_THUE", "DA_DAT"].includes(id)
+                          }
                         >
                           {label}
                         </option>
@@ -565,22 +569,32 @@ export default function OwnerCollectionPage({ section }) {
                         )}
                         {schema.key === "contracts" ? (
                           <>
-                            <button
-                              className="text-button"
-                              onClick={() =>
-                                setEnding({ id: row.id, action: "end" })
-                              }
-                            >
-                              Kết thúc
-                            </button>
-                            <button
-                              className="text-button danger-text"
-                              onClick={() =>
-                                setEnding({ id: row.id, action: "cancel" })
-                              }
-                            >
-                              Hủy HĐ
-                            </button>
+                            {["DANG_HIEU_LUC", "HET_HAN"].includes(
+                              row.state,
+                            ) && (
+                              <button
+                                className="text-button"
+                                onClick={() =>
+                                  setEnding({ id: row.id, action: "end", row })
+                                }
+                              >
+                                Kết thúc
+                              </button>
+                            )}
+                            {row.state === "DANG_HIEU_LUC" && (
+                              <button
+                                className="text-button danger-text"
+                                onClick={() =>
+                                  setEnding({
+                                    id: row.id,
+                                    action: "cancel",
+                                    row,
+                                  })
+                                }
+                              >
+                                Hủy HĐ
+                              </button>
+                            )}
                           </>
                         ) : (
                           <button
@@ -740,12 +754,54 @@ export default function OwnerCollectionPage({ section }) {
                   <span>Lý do kết thúc</span>
                   <textarea name="reason" required maxLength={500} />
                 </label>
+                {(() => {
+                  const deposit = Number(ending.row?.deposit || 0);
+                  const debt = (data.invoices || [])
+                    .filter((x) => x.contractId === ending.id)
+                    .reduce((sum, x) => sum + Math.max(0, Number(x.remaining)), 0);
+                  const maxRefund = Math.max(0, deposit - debt);
+                  return (
+                    <>
+                      <p>
+                        Tiền cọc {money(deposit)} · Hóa đơn còn nợ {money(debt)} ·
+                        Hoàn trả tối đa <strong>{money(maxRefund)}</strong>
+                      </p>
+                      <label className="field">
+                        <span>Tiền cọc hoàn trả (₫)</span>
+                        <input
+                          type="number"
+                          name="depositRefund"
+                          required
+                          min={0}
+                          max={maxRefund}
+                          step={1}
+                          defaultValue={maxRefund}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Ghi chú quyết toán (không bắt buộc)</span>
+                        <textarea
+                          name="settlementNote"
+                          maxLength={500}
+                          placeholder="VD: trừ cọc bù tiền điện tháng cuối, hư hỏng..."
+                        />
+                      </label>
+                    </>
+                  );
+                })()}
               </>
             ) : (
-              <p>
-                Hợp đồng chỉ được hủy khi thỏa các điều kiện nghiệp vụ. Lịch sử
-                vẫn được lưu.
-              </p>
+              <>
+                <p>
+                  Chỉ hủy hợp đồng chưa phát sinh hóa đơn (ví dụ khách không vào
+                  ở). Hợp đồng đã ở/đã tính tiền phải dùng Kết thúc để quyết
+                  toán cọc. Lịch sử vẫn được lưu.
+                </p>
+                <label className="field">
+                  <span>Lý do hủy</span>
+                  <textarea name="reason" required maxLength={500} />
+                </label>
+              </>
             )}
             {error && (
               <p className="form-error" role="alert">

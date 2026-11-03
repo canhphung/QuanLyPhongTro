@@ -322,6 +322,21 @@ export function ContractModal({ contract, editable = false, onClose }) {
               </dd>
             </div>
           )}
+          {contract.depositRefund != null && (
+            <div>
+              <dt>Quyết toán cọc</dt>
+              <dd>
+                Hoàn trả {money(contract.depositRefund)}
+                {contract.settlementNote ? ` · ${contract.settlementNote}` : ""}
+              </dd>
+            </div>
+          )}
+          {!contract.actualEnd && contract.endReason && (
+            <div>
+              <dt>Lý do hủy</dt>
+              <dd>{contract.endReason}</dd>
+            </div>
+          )}
         </dl>
         <h3 className="members-title">
           <Users size={18} />

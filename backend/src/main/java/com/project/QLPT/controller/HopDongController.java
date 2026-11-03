@@ -115,9 +115,9 @@ public class HopDongController {
    */
   @PatchMapping("/{id}/huy")
   public HopDongResponse huy(
-      @PathVariable Integer id) {
-
-    return hopDongService.huy(id);
+      @PathVariable Integer id,
+      @RequestBody(required = false) java.util.Map<String, String> body) {
+    return hopDongService.huy(id, body == null ? null : body.get("lyDo"));
   }
 
   @GetMapping("/phan-trang")

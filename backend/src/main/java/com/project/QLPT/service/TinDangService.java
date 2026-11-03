@@ -150,11 +150,49 @@ public class TinDangService {
   if (list == null) return List.of();
   return list.stream().filter(Objects::nonNull).toList();
  }
+ /**
+  * Phòng không còn cho thuê được (giữ chỗ, đã có hợp đồng, bảo trì, ngừng hoạt động): đóng các yêu
+  * cầu xem/thuê còn mở và ẩn tin đang hiển thị. Khi phòng trống lại, chủ trọ phải gửi duyệt lại
+  * để nội dung/giá được kiểm duyệt trước khi công khai.
+  */
+ @Transactional(isolation=Isolation.READ_COMMITTED)
+ public void roomUnavailable(Integer phongId) {
+  viewingRequests.closeForRoom(phongId,ViewingRequests.PHONG_KHONG_CON_TRONG);
+  repository.findByPhong_Id(phongId).ifPresent(tin->{
+   entityManager.refresh(tin,LockModeType.PESSIMISTIC_WRITE);
+   if(tin.getTrangThai()!=TrangThaiTinDang.DA_DUYET)return;
+   var version=tin.getPhienBan();
+   tin.setTrangThai(TrangThaiTinDang.DA_AN);tin.setLyDo(ROOM_UNAVAILABLE);
+   record(tin,version,HanhDongTinDang.AN,ROOM_UNAVAILABLE,current.getTaiKhoan());
+  });
+ }
+ private static final String ROOM_UNAVAILABLE="Phòng không còn trống; gửi duyệt lại khi phòng trống";
+
+ /**
+  * Giá và diện tích của tin là bản sao của phòng. Khi phòng đổi giá/diện tích: tin chưa công khai
+  * được cập nhật theo; tin đang chờ duyệt/đang hiển thị phải rút hoặc ẩn trước để không công bố
+  * giá khác với giá được duyệt.
+  */
+ @Transactional(isolation=Isolation.READ_COMMITTED)
+ public void roomChanged(Phong room) {
+  repository.findByPhong_Id(room.getId()).ifPresent(tin->{
+   entityManager.refresh(tin,LockModeType.PESSIMISTIC_WRITE);
+   boolean changed=tin.getGiaThue().compareTo(room.getGiaThue())!=0
+     || tin.getDienTich().compareTo(room.getDienTich())!=0;
+   if(!changed)return;
+   if(tin.getTrangThai()==TrangThaiTinDang.CHO_DUYET || tin.getTrangThai()==TrangThaiTinDang.DA_DUYET)
+    throw new BusinessException("Tin đăng đang chờ duyệt/đang hiển thị với giá và diện tích cũ; rút hoặc ẩn tin trước khi đổi");
+   tin.setGiaThue(room.getGiaThue());tin.setDienTich(room.getDienTich());tin.setNgayCapNhat(now());
+  });
+ }
+
  private void copy(TinDang tin,TinDangRequest request) {
   rule(()->ListingRules.price(request.giaThue()));
+  if(request.giaThue().compareTo(tin.getPhong().getGiaThue())!=0)
+   throw new BusinessException("Giá tin đăng phải bằng giá thuê của phòng; hãy sửa giá phòng nếu muốn đổi giá");
   List<String> urls;
   try {urls=ListingRules.images(request.anhUrls());} catch(IllegalArgumentException ex){throw new BusinessException(ex.getMessage());}
-  tin.setTieuDe(request.tieuDe().trim());tin.setMoTa(request.moTa().trim());tin.setGiaThue(request.giaThue());
+  tin.setTieuDe(request.tieuDe().trim());tin.setMoTa(request.moTa().trim());tin.setGiaThue(tin.getPhong().getGiaThue());
   tin.setSoDienThoaiLienHe(request.soDienThoaiLienHe().trim());
   // Snapshot nội dung vị trí/diện tích: phòng/nhà thay đổi không sửa nội dung đã duyệt.
   tin.setDienTich(tin.getPhong().getDienTich());tin.setDiaChi(tin.getPhong().getNhaTro().getDiaChi());

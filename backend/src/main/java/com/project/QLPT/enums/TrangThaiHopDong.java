@@ -11,7 +11,8 @@ public enum TrangThaiHopDong {
     DANG_HIEU_LUC,
 
     /**
-     * Hợp đồng đã hết thời hạn.
+     * Đã quá ngày kết thúc theo hợp đồng nhưng chưa ghi nhận trả phòng; người thuê vẫn đang ở.
+     * Cần gia hạn (sửa ngày kết thúc) hoặc kết thúc hợp đồng.
      */
     HET_HAN,
 

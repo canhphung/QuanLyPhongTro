@@ -445,6 +445,12 @@ public class HoaDonService {
         if (hopDong.getTrangThai()
             == TrangThaiHopDong.DANG_HIEU_LUC) {
             ngayCuoi = hopDong.getNgayKetThuc();
+        } else if (hopDong.getTrangThai()
+            == TrangThaiHopDong.HET_HAN) {
+            // Quá hạn nhưng người thuê vẫn ở: vẫn tính tiền tới tháng hiện tại.
+            LocalDate homNay = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+            ngayCuoi = homNay.isAfter(hopDong.getNgayKetThuc())
+                ? homNay : hopDong.getNgayKetThuc();
 
         } else if (hopDong.getTrangThai()
             == TrangThaiHopDong.DA_KET_THUC) {
@@ -460,7 +466,7 @@ public class HoaDonService {
 
         } else {
             throw new BusinessException(
-                "Chỉ lập hóa đơn cho hợp đồng đang hiệu lực "
+                "Chỉ lập hóa đơn cho hợp đồng đang hiệu lực, hết hạn "
                     + "hoặc đã kết thúc có ngày trả phòng thực tế"
             );
         }

@@ -1,5 +1,6 @@
 package com.project.QLPT.service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 import org.springframework.data.domain.Sort;
@@ -7,7 +8,6 @@ import org.springframework.transaction.annotation.Isolation;
 import com.project.QLPT.dto.response.PageResponse;
 import com.project.QLPT.repository.specification.OwnerSpecifications;
 import com.project.QLPT.service.support.PageSupport;
-import com.project.QLPT.service.support.ViewingRequests;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
@@ -54,7 +54,7 @@ public class HopDongService {
   private final OwnedContractAccess access;
   private final PhongRepository phongRepository;
   private final ThanhVienHopDongRepository thanhVienHopDongRepository;
-  private final ViewingRequests viewingRequests;
+  private final TinDangService tinDangService;
 
   @PersistenceContext
   private EntityManager entityManager;
@@ -76,22 +76,32 @@ public class HopDongService {
    */
   @Transactional(isolation = Isolation.READ_COMMITTED)
   public HopDongResponse create(HopDongRequest request) {
+    return create(request, false);
+  }
 
+  /**
+   * Tạo hợp đồng.
+   *
+   * @param fromHold {@code true} khi hợp đồng được lập từ một yêu cầu đã giữ chỗ (phòng đang
+   *                 {@link TrangThaiPhong#DA_DAT}); người gọi chịu trách nhiệm kiểm tra yêu cầu giữ
+   *                 chỗ thuộc đúng phòng.
+   */
+  @Transactional(isolation = Isolation.READ_COMMITTED)
+  public HopDongResponse create(HopDongRequest request, boolean fromHold) {
     validateDate(request);
-
-    Phong phong = findPhongForUpdate(request.phongId());
-
-    if (phong.getTrangThai()
-        != TrangThaiPhong.TRONG) {
+    if (!request.ngayKetThuc().isAfter(homNay())) {
       throw new BusinessException(
-          "Chỉ có thể lập hợp đồng cho phòng đang trống");
+          "Ngày kết thúc phải sau hôm nay; không lập hợp đồng đã hết hạn");
     }
-
-    if (hopDongRepository
-        .existsByPhong_IdAndTrangThai(
-            phong.getId(),
-            TrangThaiHopDong.DANG_HIEU_LUC)) {
-
+    Phong phong = findPhongForUpdate(request.phongId());
+    TrangThaiPhong required = fromHold ? TrangThaiPhong.DA_DAT : TrangThaiPhong.TRONG;
+    if (phong.getTrangThai() != required) {
+      throw new BusinessException(
+          phong.getTrangThai() == TrangThaiPhong.DA_DAT
+              ? "Phòng đang được giữ chỗ; lập hợp đồng từ yêu cầu giữ chỗ hoặc hủy giữ chỗ trước"
+              : "Chỉ có thể lập hợp đồng cho phòng đang trống");
+    }
+    if (hasOpenContract(phong.getId())) {
       throw new BusinessException(
           "Phòng đã có hợp đồng đang hiệu lực");
     }
@@ -107,10 +117,10 @@ public class HopDongService {
             TrangThaiHopDong.DANG_HIEU_LUC)
         .build();
 
-    phong.setTrangThai(
-        TrangThaiPhong.DANG_THUE);
-    // Phòng đã có người thuê: đóng các yêu cầu xem/thuê còn mở của khách khác.
-    viewingRequests.closeForRoom(phong.getId(), ViewingRequests.PHONG_KHONG_CON_TRONG);
+    // Chưa tới ngày vào ở: phòng ở trạng thái đã đặt; job hằng ngày chuyển sang đang thuê.
+    phong.setTrangThai(roomStateFor(request.ngayBatDau()));
+    // Phòng đã có người thuê: ẩn tin và đóng các yêu cầu xem/thuê còn mở của khách khác.
+    tinDangService.roomUnavailable(phong.getId());
 
     return toResponse(
         hopDongRepository.saveAndFlush(entity));
@@ -164,10 +174,9 @@ public class HopDongService {
     // Thành viên cũng khóa cùng hợp đồng khi ghi.
     // Nhờ vậy, việc sửa thời hạn và sửa thành viên được tuần tự hóa.
     HopDong entity = findHopDongForUpdate(id);
-
-    if (entity.getTrangThai() != TrangThaiHopDong.DANG_HIEU_LUC) {
+    if (!isOpen(entity.getTrangThai())) {
       throw new BusinessException(
-          "Chỉ được chỉnh sửa hợp đồng đang hiệu lực"
+          "Chỉ được chỉnh sửa (gia hạn) hợp đồng đang hiệu lực hoặc đã hết hạn chưa trả phòng"
       );
     }
 
@@ -184,7 +193,12 @@ public class HopDongService {
     entity.setNgayKetThuc(request.ngayKetThuc());
     entity.setGiaThueThoaThuan(request.giaThueThoaThuan());
     entity.setTienCoc(request.tienCoc());
-
+    // Gia hạn: hợp đồng hết hạn được sửa ngày kết thúc về tương lai thì hiệu lực trở lại.
+    entity.setTrangThai(request.ngayKetThuc().isBefore(homNay())
+        ? TrangThaiHopDong.HET_HAN
+        : TrangThaiHopDong.DANG_HIEU_LUC);
+    // Đổi ngày bắt đầu: phòng theo đó là đã đặt (chưa vào ở) hoặc đang thuê.
+    entity.getPhong().setTrangThai(roomStateFor(request.ngayBatDau()));
     return toResponse(entity);
   }
 
@@ -208,20 +222,15 @@ public class HopDongService {
     // Helper ở phần 1: khóa phòng trước, hợp đồng sau;
     // refresh hợp đồng sau khi lấy khóa.
     HopDong entity = findHopDongForClose(id);
-
-    if (entity.getTrangThai() != TrangThaiHopDong.DANG_HIEU_LUC) {
+    if (!isOpen(entity.getTrangThai())) {
       throw new BusinessException(
-          "Chỉ kết thúc hợp đồng đang hiệu lực"
+          "Chỉ kết thúc hợp đồng đang hiệu lực hoặc đã hết hạn"
       );
     }
 
     LocalDate ngayKetThuc = getNgayKetThuc(request, entity);
 
-    LocalDate homNay = LocalDate.now(
-        ZoneId.of("Asia/Ho_Chi_Minh")
-    );
-
-    if (ngayKetThuc.isAfter(homNay)) {
+    if (ngayKetThuc.isAfter(homNay())) {
       throw new BusinessException(
           "Chỉ ghi nhận kết thúc khi đã thực tế trả phòng"
       );
@@ -256,6 +265,23 @@ public class HopDongService {
       thanhVien.setLaDaiDien(false);
     }
 
+    // Quyết toán cọc: tiền cọc trước hết bù các khoản hóa đơn còn nợ.
+    BigDecimal hoanTra = request.tienCocHoanTra();
+    if (hoanTra == null || hoanTra.signum() < 0) {
+      throw new BusinessException(
+          "Cần nhập số tiền cọc hoàn trả (nhập 0 nếu không hoàn)");
+    }
+    BigDecimal conNo = congNo(id);
+    BigDecimal toiDa = entity.getTienCoc().subtract(conNo).max(BigDecimal.ZERO);
+    if (hoanTra.compareTo(toiDa) > 0) {
+      throw new BusinessException(
+          "Tiền cọc hoàn trả tối đa " + toiDa.toPlainString()
+              + " ₫ (tiền cọc " + entity.getTienCoc().toPlainString()
+              + " ₫, hóa đơn còn nợ " + conNo.toPlainString() + " ₫)");
+    }
+    String ghiChu = request.ghiChuQuyetToan() == null ? "" : request.ghiChuQuyetToan().trim();
+    entity.setTienCocHoanTra(hoanTra);
+    entity.setGhiChuQuyetToan(ghiChu.isEmpty() ? null : ghiChu);
     entity.setNgayKetThucThucTe(ngayKetThuc);
     entity.setLyDoKetThuc(request.lyDoKetThuc().trim());
     entity.setTrangThai(TrangThaiHopDong.DA_KET_THUC);
@@ -302,15 +328,33 @@ public class HopDongService {
    * @throws BusinessException         nếu hợp đồng không đang hiệu lực
    */
   @Transactional(isolation = Isolation.READ_COMMITTED)
-  public HopDongResponse huy(Integer id) {
+  public HopDongResponse huy(Integer id, String lyDo) {
     HopDong entity = findHopDongForClose(id);
-
     if (entity.getTrangThai() != TrangThaiHopDong.DANG_HIEU_LUC) {
       throw new BusinessException(
           "Chỉ có thể hủy hợp đồng đang hiệu lực"
       );
     }
-
+    if (lyDo == null || lyDo.isBlank()) {
+      throw new BusinessException("Cần nhập lý do hủy hợp đồng");
+    }
+    if (lyDo.trim().length() > 500) {
+      throw new BusinessException("Lý do hủy tối đa 500 ký tự");
+    }
+    // Hủy chỉ dùng cho hợp đồng chưa phát sinh nghĩa vụ. Đã có hóa đơn nghĩa là đã ở/đã tính
+    // tiền: phải "Kết thúc" để quyết toán cọc và giữ đúng lịch sử.
+    if (soHoaDon(id) > 0) {
+      throw new BusinessException(
+          "Hợp đồng đã phát sinh hóa đơn; hãy dùng Kết thúc hợp đồng để quyết toán");
+    }
+    for (ThanhVienHopDong thanhVien
+        : thanhVienHopDongRepository.findByHopDong_IdOrderByNgayVaoAsc(id)) {
+      if (thanhVien.getNgayRoi() == null) {
+        thanhVien.setNgayRoi(thanhVien.getNgayVao());
+      }
+      thanhVien.setLaDaiDien(false);
+    }
+    entity.setLyDoKetThuc(lyDo.trim());
     entity.setTrangThai(TrangThaiHopDong.DA_HUY);
     entity.getPhong().setTrangThai(TrangThaiPhong.TRONG);
 
@@ -351,6 +395,44 @@ public class HopDongService {
   }
 
   private HopDong findHopDongForUpdate(Integer id) { return access.lock(id); }
+
+  private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+
+  private static LocalDate homNay() { return LocalDate.now(ZONE); }
+
+  /** Hợp đồng còn chiếm phòng: đang hiệu lực hoặc đã quá hạn nhưng chưa ghi nhận trả phòng. */
+  public static boolean isOpen(TrangThaiHopDong state) {
+    return state == TrangThaiHopDong.DANG_HIEU_LUC || state == TrangThaiHopDong.HET_HAN;
+  }
+
+  private boolean hasOpenContract(Integer phongId) {
+    return hopDongRepository.existsByPhong_IdAndTrangThai(phongId, TrangThaiHopDong.DANG_HIEU_LUC)
+        || hopDongRepository.existsByPhong_IdAndTrangThai(phongId, TrangThaiHopDong.HET_HAN);
+  }
+
+  private static TrangThaiPhong roomStateFor(LocalDate ngayBatDau) {
+    return ngayBatDau.isAfter(homNay()) ? TrangThaiPhong.DA_DAT : TrangThaiPhong.DANG_THUE;
+  }
+
+  private long soHoaDon(Integer hopDongId) {
+    return ((Number) entityManager
+        .createNativeQuery("SELECT COUNT(*) FROM hoa_don WHERE hop_dong_id=?1")
+        .setParameter(1, hopDongId)
+        .getSingleResult()).longValue();
+  }
+
+  /** Tổng tiền hóa đơn còn phải thu của hợp đồng. */
+  private BigDecimal congNo(Integer hopDongId) {
+    Object value = entityManager.createNativeQuery("""
+        SELECT COALESCE(SUM(GREATEST(0,
+          i.tien_phong
+          + COALESCE((SELECT SUM(ROUND(ct.so_luong*ct.don_gia,0)) FROM chi_tiet_hoa_don ct
+                      WHERE ct.hoa_don_id=i.id),0)
+          - COALESCE((SELECT SUM(tt.so_tien) FROM thanh_toan tt WHERE tt.hoa_don_id=i.id),0))),0)
+        FROM hoa_don i WHERE i.hop_dong_id=?1
+        """).setParameter(1, hopDongId).getSingleResult();
+    return new BigDecimal(value.toString());
+  }
 
   private HopDong findHopDongForClose(Integer id) { return access.lock(id); }
 

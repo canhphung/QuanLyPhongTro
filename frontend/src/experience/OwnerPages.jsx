@@ -31,7 +31,17 @@ import {
 } from "lucide-react";
 import { useAppData } from "./context";
 import { Brand, PageTitle, Modal, Status, EmptyState } from "./ui";
-import { ownerMenus, money, TODAY_TEXT } from "./data";
+import { ownerMenus, money, TODAY_TEXT, TODAY_INPUT } from "./data";
+
+const addDays = (days) => {
+  const date = new Date(`${TODAY_INPUT}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+};
 
 const icons = {
   LayoutDashboard,
@@ -260,13 +270,19 @@ export function OwnerDashboard() {
     .filter((x) => x.status !== "Đã thanh toán")
     .reduce((sum, invoice) => sum + Number(invoice.remaining), 0);
   const occupied = rooms.filter((x) => x.roomState === "DANG_THUE").length;
-  const upcoming = requests.filter((x) => x.status === "Chờ xác nhận");
-  async function respond(request, status) {
+  const upcoming = requests.filter((x) =>
+    ["Chờ xác nhận", "Đã xác nhận", "Đã xem", "Đã giữ chỗ"].includes(x.status),
+  );
+  const awaiting = upcoming.filter((x) => x.status === "Chờ xác nhận").length;
+  const [holding, setHolding] = useState(null);
+  async function respond(request, status, extra = {}) {
     try {
-      await sendResponse(request.id, status);
+      await sendResponse(request.id, status, extra);
       notify("Đã cập nhật yêu cầu.");
+      return true;
     } catch (e) {
       notify(e.message);
+      return false;
     }
   }
   const stats = [
@@ -443,10 +459,10 @@ export function OwnerDashboard() {
       <section className="admin-panel">
         <div className="panel-heading">
           <div>
-            <h2>Yêu cầu đang chờ</h2>
+            <h2>Lịch hẹn & giữ chỗ</h2>
             <p>
               {upcoming.length
-                ? `${upcoming.length} yêu cầu cần phản hồi`
+                ? `${awaiting} yêu cầu chờ phản hồi · ${upcoming.length} đang theo dõi`
                 : "Lịch hẹn xem và yêu cầu thuê phòng mới"}
             </p>
           </div>
@@ -461,6 +477,7 @@ export function OwnerDashboard() {
                   <th>Căn phòng</th>
                   <th>Lịch mong muốn</th>
                   <th>Loại yêu cầu</th>
+                  <th>Trạng thái</th>
                   <th>Phản hồi</th>
                 </tr>
               </thead>
@@ -481,21 +498,73 @@ export function OwnerDashboard() {
                     </td>
                     <td>{request.type}</td>
                     <td>
+                      <Status>{request.status}</Status>
+                      {request.status === "Đã giữ chỗ" && (
+                        <small>
+                          Cọc {money(request.holdDeposit)} · đến{" "}
+                          {request.holdUntil}
+                        </small>
+                      )}
+                    </td>
+                    <td>
                       <div className="row-actions">
-                        <button
-                          className="text-button"
-                          onClick={() => respond(request, "Đã xác nhận")}
-                        >
-                          <Check size={15} />
-                          Xác nhận
-                        </button>
-                        <button
-                          className="icon-button"
-                          aria-label="Từ chối yêu cầu"
-                          onClick={() => respond(request, "Đã từ chối")}
-                        >
-                          <X size={17} />
-                        </button>
+                        {request.status === "Chờ xác nhận" && (
+                          <>
+                            <button
+                              className="text-button"
+                              onClick={() => respond(request, "Đã xác nhận")}
+                            >
+                              <Check size={15} />
+                              Xác nhận
+                            </button>
+                            <button
+                              className="icon-button"
+                              aria-label="Từ chối yêu cầu"
+                              onClick={() => respond(request, "Đã từ chối")}
+                            >
+                              <X size={17} />
+                            </button>
+                          </>
+                        )}
+                        {request.status === "Đã xác nhận" && !!request.past && (
+                          <>
+                            <button
+                              className="text-button"
+                              onClick={() => respond(request, "Đã xem")}
+                            >
+                              Đã xem
+                            </button>
+                            <button
+                              className="text-button"
+                              onClick={() => respond(request, "Khách không đến")}
+                            >
+                              Không đến
+                            </button>
+                          </>
+                        )}
+                        {(["Đã xác nhận", "Đã xem"].includes(request.status) ||
+                          (request.status === "Chờ xác nhận" &&
+                            request.type === "Đăng ký thuê")) && (
+                          <button
+                            className="text-button"
+                            onClick={() => setHolding(request)}
+                          >
+                            Giữ chỗ
+                          </button>
+                        )}
+                        {request.status === "Đã giữ chỗ" && (
+                          <>
+                            <Link className="text-button" to="/chu-tro/hop-dong">
+                              Lập hợp đồng
+                            </Link>
+                            <button
+                              className="text-button danger-text"
+                              onClick={() => respond(request, "Đã hủy giữ chỗ")}
+                            >
+                              Hủy giữ chỗ
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -517,6 +586,40 @@ export function OwnerDashboard() {
           </div>
         )}
       </section>
+      {holding && (
+        <Modal title="Giữ chỗ phòng" onClose={() => setHolding(null)}>
+          <form
+            className="form-stack"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const body = Object.fromEntries(new FormData(e.currentTarget));
+              if (await respond(holding, "Đã giữ chỗ", body)) setHolding(null);
+            }}
+          >
+            <p>
+              Phòng {holding.room} · {holding.name}. Khi giữ chỗ, tin đăng được ẩn
+              và các lịch hẹn khác của phòng được đóng. Lập hợp đồng từ yêu cầu
+              giữ chỗ trước hạn, quá hạn hệ thống tự trả phòng về trống.
+            </p>
+            <label className="field">
+              <span>Tiền cọc giữ chỗ (₫)</span>
+              <input type="number" name="holdDeposit" min={0} step={1} required defaultValue={0} />
+            </label>
+            <label className="field">
+              <span>Giữ chỗ đến ngày (tối đa 30 ngày)</span>
+              <input
+                type="date"
+                name="holdUntil"
+                required
+                min={TODAY_INPUT}
+                max={addDays(30)}
+                defaultValue={addDays(7)}
+              />
+            </label>
+            <button className="button">Xác nhận giữ chỗ</button>
+          </form>
+        </Modal>
+      )}
       <section className="admin-panel dashboard-bills">
         <div className="panel-heading">
           <div>

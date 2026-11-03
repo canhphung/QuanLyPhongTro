@@ -67,6 +67,12 @@ public class HopDong {
     )
     private BigDecimal tienCoc;
 
+    @Column(name = "tien_coc_hoan_tra", precision = 19, scale = 0)
+    private BigDecimal tienCocHoanTra;
+
+    @Column(name = "ghi_chu_quyet_toan", length = 500)
+    private String ghiChuQuyetToan;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "trang_thai", nullable = false, length = 30)
     private TrangThaiHopDong trangThai;

@@ -11,6 +11,11 @@ public enum TrangThaiPhong {
     TRONG,
 
     /**
+     * Phòng đã được giữ chỗ (khách đặt cọc giữ chỗ) hoặc đã ký hợp đồng nhưng chưa tới ngày vào ở.
+     */
+    DA_DAT,
+
+    /**
      * Phòng đang được thuê.
      */
     DANG_THUE,
