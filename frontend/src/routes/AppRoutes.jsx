@@ -17,6 +17,7 @@ import {
 import { OwnerLayout, OwnerDashboard } from "../experience/OwnerPages";
 import OwnerCollectionPage from "../experience/OwnerCollection";
 import AdminListings from "../experience/AdminListings";
+import PaymentResultPage from "../experience/PaymentResultPage";
 import { ApiProvider } from "../experience/ApiProvider";
 import { EmptyState } from "../experience/ui";
 
@@ -60,6 +61,7 @@ export default function AppRoutes() {
           <Route path="phong-tro/:id" element={<RoomDetailPage />} />
           <Route path="dang-nhap" element={<AuthPage />} />
           <Route path="dang-ky" element={<AuthPage register />} />
+          <Route path="thanh-toan/ket-qua" element={<PaymentResultPage />} />
           <Route
             path="tai-khoan"
             element={

@@ -90,23 +90,17 @@ export function ApiProvider({ children }) {
   const [theme, setTheme] = useState(() => {
     try {
       const stored = localStorage.getItem("phongminh_theme");
-      if (stored) return stored;
-      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      // Mặc định giao diện sáng; chủ trọ tự bật giao diện tối trong khu quản lý.
+      return stored === "dark" ? "dark" : "light";
     } catch {
       return "light";
     }
   });
 
+  // Chỉ lưu lựa chọn; giao diện tối được áp dụng trong khu vực chủ trọ (OwnerLayout), vì các trang
+  // công khai/người thuê chưa có bảng màu tối.
   useEffect(() => {
     try {
-      document.documentElement.setAttribute("data-theme", theme);
-      if (theme === "dark") {
-        document.documentElement.classList.add("dark");
-        document.body.classList.add("dark-theme");
-      } else {
-        document.documentElement.classList.remove("dark");
-        document.body.classList.remove("dark-theme");
-      }
       localStorage.setItem("phongminh_theme", theme);
     } catch {}
   }, [theme]);

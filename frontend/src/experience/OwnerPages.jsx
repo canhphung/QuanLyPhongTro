@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Link,
   NavLink,
@@ -90,6 +90,21 @@ export function OwnerLayout() {
     ownerMenus.find(([path]) => location.pathname.includes(path))?.[1] ||
     "Tổng quan";
   const pending = requests.filter((x) => x.status === "Chờ xác nhận");
+
+  // Giao diện tối chỉ áp dụng khi đang ở khu vực chủ trọ (kể cả hộp thoại mở từ đây);
+  // rời khu vực thì trả về giao diện sáng cho các trang công khai.
+  useEffect(() => {
+    const root = document.documentElement;
+    const dark = theme === "dark";
+    root.setAttribute("data-theme", dark ? "dark" : "light");
+    root.classList.toggle("dark", dark);
+    document.body.classList.toggle("dark-theme", dark);
+    return () => {
+      root.setAttribute("data-theme", "light");
+      root.classList.remove("dark");
+      document.body.classList.remove("dark-theme");
+    };
+  }, [theme]);
 
   return (
     <div className={`owner-app ${theme === "dark" ? "dark-theme" : ""}`} data-ui>
@@ -323,7 +338,7 @@ export function OwnerLayout() {
         {/* Professional Footer */}
         <footer className="owner-footer" style={{ padding: "20px 32px", fontSize: "13px", color: "var(--muted)", borderTop: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>© {CURRENT_YEAR} Phòng Mình · Nền tảng quản lý phòng trọ và cho thuê nhà thông minh.</span>
-          <span style={{ fontSize: "12px", background: "rgba(79,70,229,0.08)", color: "#4F46E5", padding: "4px 10px", borderRadius: "20px", fontWeight: 600 }}>
+          <span style={{ fontSize: "12px", background: "rgba(79,70,229,0.08)", color: "var(--accent-text, #4F46E5)", padding: "4px 10px", borderRadius: "20px", fontWeight: 600 }}>
             Phiên bản Chủ trọ 2.0
           </span>
         </footer>
@@ -359,7 +374,7 @@ export function OwnerLayout() {
                         height: "42px",
                         borderRadius: "12px",
                         background: "#EEF2FF",
-                        color: "#4F46E5",
+                        color: "var(--accent-text, #4F46E5)",
                         display: "grid",
                         placeItems: "center",
                         fontWeight: 700,
@@ -376,7 +391,7 @@ export function OwnerLayout() {
                       <span style={{ fontSize: "13px", color: "var(--muted)" }}>
                         {request.type} tại <strong>{request.building}</strong> (Phòng {request.room})
                       </span>
-                      <div style={{ fontSize: "12px", color: "#4F46E5", marginTop: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
+                      <div style={{ fontSize: "12px", color: "var(--accent-text, #4F46E5)", marginTop: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
                         <Clock size={13} />
                         Hẹn lúc: {request.date} lúc {request.time}
                       </div>
@@ -725,7 +740,7 @@ export function OwnerDashboard() {
                     </td>
                     <td>
                       <span style={{ fontWeight: 600 }}>{request.building}</span>
-                      <small style={{ display: "block", color: "#4F46E5", fontSize: "12px", fontWeight: 600 }}>
+                      <small className="room-ref" style={{ display: "block", color: "var(--accent-text, #4F46E5)", fontSize: "12px", fontWeight: 600 }}>
                         Phòng {request.room}
                       </small>
                     </td>
@@ -840,7 +855,7 @@ export function OwnerDashboard() {
           </div>
         ) : (
           <div className="inline-empty" style={{ padding: "32px 20px", display: "flex", alignItems: "center", gap: "16px", background: "rgba(79,70,229,0.03)", borderRadius: "14px" }}>
-            <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: "#EEF2FF", color: "#4F46E5", display: "grid", placeItems: "center", flexShrink: 0 }}>
+            <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: "#EEF2FF", color: "var(--accent-text, #4F46E5)", display: "grid", placeItems: "center", flexShrink: 0 }}>
               <CalendarDays size={22} />
             </div>
             <div style={{ flex: 1 }}>

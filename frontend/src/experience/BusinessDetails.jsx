@@ -320,7 +320,7 @@ export function InvoiceModal({ invoice, editable = false, onClose }) {
                   type="button"
                   className="button button-soft"
                   style={{
-                    background: "#FFFFFF",
+                    background: "var(--surface)",
                     border: "1px solid #86EFAC",
                     color: "#166534",
                   }}
@@ -340,12 +340,12 @@ export function InvoiceModal({ invoice, editable = false, onClose }) {
             {showVietQR && (
               <div
                 style={{
-                  background: "#FFFFFF",
+                  background: "var(--surface)",
                   borderRadius: "12px",
                   padding: "12px 16px",
                   border: "1px solid #DCFCE7",
                   fontSize: "12.5px",
-                  color: "#64748B",
+                  color: "var(--muted)",
                 }}
               >
                 Môi trường thử nghiệm (VNPAY Sandbox) — dùng thẻ test: số thẻ{" "}
@@ -564,7 +564,7 @@ export function ContractModal({ contract, editable = false, onClose }) {
           </div>
           <div className="customer-info-item">
             <span>Giá thuê mỗi tháng</span>
-            <strong style={{ color: "#4F46E5" }}>{money(contract.price)}</strong>
+            <strong style={{ color: "var(--accent-text, #4F46E5)" }}>{money(contract.price)}</strong>
           </div>
           <div className="customer-info-item">
             <span>Tiền đặt cọc</span>

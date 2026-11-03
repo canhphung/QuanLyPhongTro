@@ -553,7 +553,7 @@ function BuildingGridCard({ building, onDetail, onEdit, onDelete }) {
                 height: "42px",
                 borderRadius: "12px",
                 background: "rgba(79, 70, 229, 0.1)",
-                color: "#4F46E5",
+                color: "var(--accent-text, #4F46E5)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -1289,7 +1289,7 @@ export default function OwnerCollectionPage({ section }) {
                 height: "48px",
                 borderRadius: "50%",
                 background: "#EEF2FF",
-                color: "#4F46E5",
+                color: "var(--accent-text, #4F46E5)",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -1323,7 +1323,7 @@ export default function OwnerCollectionPage({ section }) {
                   fontSize: "26px",
                   fontWeight: 800,
                   letterSpacing: "4px",
-                  color: "#4F46E5",
+                  color: "var(--accent-text, #4F46E5)",
                   fontFamily: "monospace",
                 }}
               >

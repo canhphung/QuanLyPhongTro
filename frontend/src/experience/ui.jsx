@@ -443,7 +443,7 @@ export function NotificationDropdown({ onClose }) {
           <div style={{ color: "#EF4444" }}><Receipt size={18} /></div>
           <div>
             <strong style={{ fontSize: "13px", display: "block" }}>Hóa đơn mới</strong>
-            <span style={{ fontSize: "12px", color: "#64748B" }}>
+            <span style={{ fontSize: "12px", color: "var(--muted)" }}>
               Có {unpaidBills.length} hóa đơn cần thanh toán
             </span>
           </div>
@@ -459,7 +459,7 @@ export function NotificationDropdown({ onClose }) {
           <div style={{ color: "#3B82F6" }}><CalendarDays size={18} /></div>
           <div>
             <strong style={{ fontSize: "13px", display: "block" }}>Lịch hẹn xem phòng</strong>
-            <span style={{ fontSize: "12px", color: "#64748B" }}>
+            <span style={{ fontSize: "12px", color: "var(--muted)" }}>
               {pendingRequests.length} yêu cầu đang chờ chủ trọ xác nhận
             </span>
           </div>
@@ -475,7 +475,7 @@ export function NotificationDropdown({ onClose }) {
           <div style={{ color: "#10B981" }}><FileText size={18} /></div>
           <div>
             <strong style={{ fontSize: "13px", display: "block" }}>Hợp đồng thuê phòng</strong>
-            <span style={{ fontSize: "12px", color: "#64748B" }}>
+            <span style={{ fontSize: "12px", color: "var(--muted)" }}>
               Đang có {contracts.length} hợp đồng hiệu lực
             </span>
           </div>
@@ -483,7 +483,7 @@ export function NotificationDropdown({ onClose }) {
       )}
 
       {unpaidBills.length === 0 && pendingRequests.length === 0 && contracts.length === 0 && (
-        <div style={{ padding: "20px", textAlign: "center", color: "#64748B", fontSize: "13px" }}>
+        <div style={{ padding: "20px", textAlign: "center", color: "var(--muted)", fontSize: "13px" }}>
           Bạn chưa có thông báo mới nào
         </div>
       )}
@@ -607,11 +607,11 @@ export function PageTitle({ title, subtitle, action }) {
   return (
     <div className="page-title" style={{ marginBottom: "24px" }}>
       <div>
-        <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em" }}>
+        <h1 style={{ fontSize: "28px", fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.02em" }}>
           {title}
         </h1>
         {subtitle && (
-          <p style={{ fontSize: "15px", color: "#64748B", marginTop: "6px" }}>
+          <p style={{ fontSize: "15px", color: "var(--muted)", marginTop: "6px" }}>
             {subtitle}
           </p>
         )}
@@ -626,10 +626,10 @@ export function EmptyState({ title = "Chưa có dữ liệu", message, action })
     <div
       className="empty-state"
       style={{
-        background: "#FFFFFF",
+        background: "var(--surface)",
         borderRadius: "20px",
         padding: "48px 24px",
-        border: "1px solid #E2E8F0",
+        border: "1px solid var(--line)",
         textAlign: "center",
       }}
     >
@@ -647,10 +647,10 @@ export function EmptyState({ title = "Chưa có dữ liệu", message, action })
       >
         <Search size={30} strokeWidth={1.5} />
       </div>
-      <h2 style={{ fontSize: "20px", fontWeight: 700, color: "#0F172A", marginBottom: "8px" }}>
+      <h2 style={{ fontSize: "20px", fontWeight: 700, color: "var(--ink)", marginBottom: "8px" }}>
         {title}
       </h2>
-      <p style={{ fontSize: "14.5px", color: "#64748B", maxWidth: "420px", margin: "0 auto 20px" }}>
+      <p style={{ fontSize: "14.5px", color: "var(--muted)", maxWidth: "420px", margin: "0 auto 20px" }}>
         {message}
       </p>
       {action}
@@ -674,9 +674,24 @@ export function Status({ children }) {
         borderRadius: "9999px",
         fontSize: "12px",
         fontWeight: 600,
-        background: success ? "#ECFDF5" : warning ? "#FFFBEB" : "#F1F5F9",
-        color: success ? "#059669" : warning ? "#D97706" : "#475569",
-        border: `1px solid ${success ? "#A7F3D0" : warning ? "#FDE68A" : "#E2E8F0"}`,
+        // Biến màu có giá trị mặc định = bảng màu sáng; giao diện tối định nghĩa lại (client-modern.css).
+        background: success
+          ? "var(--pill-success-bg, #ECFDF5)"
+          : warning
+            ? "var(--pill-warning-bg, #FFFBEB)"
+            : "var(--pill-neutral-bg, #F1F5F9)",
+        color: success
+          ? "var(--pill-success-fg, #059669)"
+          : warning
+            ? "var(--pill-warning-fg, #D97706)"
+            : "var(--pill-neutral-fg, #475569)",
+        border: `1px solid ${
+          success
+            ? "var(--pill-success-line, #A7F3D0)"
+            : warning
+              ? "var(--pill-warning-line, #FDE68A)"
+              : "var(--pill-neutral-line, #E2E8F0)"
+        }`,
       }}
     >
       {success && <Check size={12} strokeWidth={2.5} />}
@@ -737,9 +752,9 @@ export function Modal({ title, children, onClose, wide = false }) {
         aria-labelledby={titleId}
         className={`modal ${wide ? "modal-wide" : ""}`}
         style={{
-          background: "#FFFFFF",
+          background: "var(--surface)",
           borderRadius: "24px",
-          border: "1px solid #E2E8F0",
+          border: "1px solid var(--line)",
           boxShadow: "0 24px 48px -12px rgba(15, 23, 42, 0.2)",
           padding: "28px",
           width: "100%",
@@ -756,10 +771,10 @@ export function Modal({ title, children, onClose, wide = false }) {
             justifyContent: "space-between",
             marginBottom: "20px",
             paddingBottom: "14px",
-            borderBottom: "1px solid #F1F5F9",
+            borderBottom: "1px solid var(--line-soft, #F1F5F9)",
           }}
         >
-          <h2 id={titleId} style={{ fontSize: "20px", fontWeight: 700, color: "#0F172A" }}>
+          <h2 id={titleId} style={{ fontSize: "20px", fontWeight: 700, color: "var(--ink)" }}>
             {title}
           </h2>
           <button
@@ -800,7 +815,7 @@ export function ArrowLink({ to, children, className = "" }) {
 
 export function DataNote() {
   return (
-    <p className="data-note" style={{ fontSize: "12px", color: "#64748B" }}>
+    <p className="data-note" style={{ fontSize: "12px", color: "var(--muted)" }}>
       Thông tin phòng và chi phí do chủ trọ cập nhật. Vui lòng đối chiếu với hợp đồng thực tế.
     </p>
   );
